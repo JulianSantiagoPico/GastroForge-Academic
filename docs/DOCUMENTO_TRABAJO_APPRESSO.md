@@ -103,9 +103,9 @@ El sistema Appresso implementa tres operaciones núcleo sobre la lista de pedido
 
 ```mermaid
 graph TD
-    A[Lista de Pedidos en Memoria N] --> B[1. Búsqueda por ID]
-    A --> C[2. Total Productos Iterativo]
-    A --> D[3. Agregación Recursiva Divide y Vencerás]
+    A["Lista de Pedidos en Memoria N"] --> B["1. Búsqueda por ID"]
+    A --> C["2. Total Productos Iterativo"]
+    A --> D["3. Agregación Recursiva Divide y Vencerás"]
     B --> B1["Mejor: O(1) | Promedio: O(n/2) | Peor: O(n)"]
     C --> C1["Tiempo: O(n) | Espacio: O(1)"]
     D --> D1["Tiempo: O(n) | Pila: O(log n)"]
@@ -231,14 +231,14 @@ $$n = \frac{\text{objetivo} - 2}{2} + 1 = \frac{\text{objetivo}}{2}$$
 
 ```mermaid
 graph LR
-    subgraph Sucesión Aritmética an = 2n
-        S1[Semana 1: 2 prod] --> S21[Semana 21: 42 prod]
-        S21 --> S36[Semana 36: 72 prod]
-        S36 --> S60[Semana 60: 120 prod]
+    subgraph Sucesion ["Sucesión Aritmética a_n = 2n"]
+        S1["Semana 1: 2 prod"] --> S21["Semana 21: 42 prod"]
+        S21 --> S36["Semana 36: 72 prod"]
+        S36 --> S60["Semana 60: 120 prod"]
     end
-    S21 -.-> D1[Descuento Nivel 1]
-    S36 -.-> D2[Descuento Nivel 2]
-    S60 -.-> D3[Descuento VIP Fidelizado]
+    S21 -.-> D1["Descuento Nivel 1"]
+    S36 -.-> D2["Descuento Nivel 2"]
+    S60 -.-> D3["Descuento VIP Fidelizado"]
 ```
 
 #### Meta 1: 42 productos
@@ -365,7 +365,7 @@ Al ejecutar una búsqueda lineal secuencial sobre una colección no indexada de 
 
 ```mermaid
 graph TD
-    subgraph Comparación de Alternativas de Búsqueda
+    subgraph Comparacion ["Comparación de Alternativas de Búsqueda"]
         BL["Búsqueda Lineal: O(n)<br>n=100.000 -> 100.000 op"]
         BB["Búsqueda Binaria: O(log n)<br>n=100.000 -> ~17 op (requiere orden previo)"]
         TH["Tabla Hash / Map / Clave Primaria: O(1)<br>n=100.000 -> 1 op (Recomendada)"]
