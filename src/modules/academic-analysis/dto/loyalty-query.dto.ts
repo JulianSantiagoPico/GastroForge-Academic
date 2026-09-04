@@ -17,11 +17,10 @@ export class LoyaltyQueryDto {
     }
     return String(value)
       .split(',')
-      .map((item) => Number(item.trim()))
-      .filter((n) => !Number.isNaN(n));
+      .map((item) => Number(item.trim()));
   })
   @IsArray({ message: 'targets debe ser una lista válida de enteros separados por comas' })
-  @IsInt({ each: true, message: 'Cada objetivo en targets debe ser un número entero' })
   @Min(1, { each: true, message: 'Cada objetivo en targets debe ser mayor o igual a 1' })
+  @IsInt({ each: true, message: 'Cada objetivo en targets debe ser un número entero' })
   targets: number[] = [42, 72, 120];
 }

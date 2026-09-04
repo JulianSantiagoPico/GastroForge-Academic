@@ -35,6 +35,7 @@ async function bootstrap() {
       transform: true,
       transformOptions: { enableImplicitConversion: true },
       forbidNonWhitelisted: false,
+      stopAtFirstError: true,
     })
   );
 

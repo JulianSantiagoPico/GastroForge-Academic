@@ -15,6 +15,7 @@ import { OrdersQueryDto } from './dto/orders-query.dto';
     transformOptions: { enableImplicitConversion: true },
     whitelist: true,
     forbidNonWhitelisted: false,
+    stopAtFirstError: true,
   })
 )
 export class AcademicAnalysisController {

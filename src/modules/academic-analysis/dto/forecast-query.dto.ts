@@ -17,12 +17,11 @@ export class ForecastQueryDto {
     }
     return String(value)
       .split(',')
-      .map((item) => Number(item.trim()))
-      .filter((n) => !Number.isNaN(n));
+      .map((item) => Number(item.trim()));
   })
   @IsArray({ message: 'daysAhead debe ser una lista válida de enteros separados por comas' })
-  @IsInt({ each: true, message: 'Cada día en daysAhead debe ser un número entero' })
-  @Min(1, { each: true, message: 'Cada día en daysAhead debe ser mayor o igual a 1' })
   @Max(365, { each: true, message: 'Cada día en daysAhead no debe exceder 365 días' })
+  @Min(1, { each: true, message: 'Cada día en daysAhead debe ser mayor o igual a 1' })
+  @IsInt({ each: true, message: 'Cada día en daysAhead debe ser un número entero' })
   daysAhead: number[] = [2, 5, 7];
 }
