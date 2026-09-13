@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AcademicAnalysisModule } from './modules/academic-analysis/academic-analysis.module';
+import { StructuresModule } from './modules/structures/structures.module';
 import { HealthController } from './modules/health/health.controller';
 
 @Module({
@@ -13,6 +14,7 @@ import { HealthController } from './modules/health/health.controller';
       },
     ]),
     AcademicAnalysisModule,
+    StructuresModule,
   ],
   controllers: [HealthController],
   providers: [

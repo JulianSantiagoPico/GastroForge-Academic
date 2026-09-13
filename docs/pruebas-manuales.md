@@ -58,3 +58,112 @@ curl -X GET "http://localhost:3000/api/v1/academic/loyalty?targets=42,72,120"
 # PA-11: Proyección de ventas con regresión lineal
 curl -X GET "http://localhost:3000/api/v1/academic/sales-forecast?daysAhead=2,5,7"
 ```
+
+---
+
+## Matriz de Pruebas: Unidad 2 - Estructuras de Datos (ED-01 a ED-10)
+
+| ID | Endpoint / Petición | Método / Parámetros / Body | Código HTTP | Resultado Esperado | Criterio de Aceptación |
+|---|---|---|:---:|---|---|
+| **ED-01** | `/health` | `GET` (sin body) | `200 OK` | `status: "ok"`, uptime y timestamp ISO. | Se confirma que la ampliación del módulo no degrada la salud del servicio. |
+| **ED-02** | `/api/v1/structures/queue/simulate` | `POST` con pedidos `ORD-A`, `ORD-B`, `ORD-C` | `200 OK` | Secuencia de despacho `['ORD-A', 'ORD-B', 'ORD-C']`. | Atención FIFO estricta en orden de llegada sin reindexación O(n). |
+| **ED-03** | `/api/v1/structures/priority/simulate` | `POST` con tareas de prioridades efectivas 50, 101 y 40 | `200 OK` | Sale primero la tarea de prioridad 101 (`TASK-101`), luego 50 y finalmente 40. | El MinHeap extrae en la raíz la comanda más urgente en $O(\log n)$. |
+| **ED-04** | `/api/v1/structures/stack/simulate` | `POST` con `ADD_ITEM`, `UPDATE_QUANTITY`, `REMOVE_ITEM` y `UNDO` | `200 OK` | `finalItems` contiene el ítem restaurado con la cantidad previa (2). | La pila LIFO invierte la acción de eliminación deterministamente. |
+| **ED-05** | `/api/v1/structures/stack/simulate` | `POST` con `ADD_ITEM`, `UNDO` y `ADD_ITEM` | `200 OK` | `redoStackSize = 0` y `finalItems` solo contiene el nuevo ítem. | Una acción nueva tras un deshacer invalida y vacía la pila de rehacer. |
+| **ED-06** | `/api/v1/structures/graph/default-route?from=kitchen&to=terrace` | `GET` con query params | `200 OK` | `reachable: true`, costo 21 segundos, ruta `kitchen -> passage -> table-1 -> terrace`. | Dijkstra sobre el plano fijo calcula el camino mínimo calibrado exacto. |
+| **ED-07** | `/api/v1/structures/graph/shortest-path` | `POST` con arista de costo `-1` | `400 Bad Request` | Mensaje de error explicando que no se admiten costos negativos. | El DTO rechaza pesos negativos para preservar la validez de Dijkstra. |
+| **ED-08** | `/api/v1/structures/graph/shortest-path` | `POST` entre nodos inconexos | `200 OK` | `reachable: false`, `path: []`, `totalCostSeconds: null`. | Grafo sin camino responde correctamente sin arrojar error 500. |
+| **ED-09** | `/api/v1/structures/index/simulate` | `POST` con lista de pedidos y búsqueda por ID | `200 OK` | `found: true`, `mapOperations: 1` frente a búsqueda lineal secuencial. | Demuestra acceso promedio $O(1)$ por tabla hash vs $O(n)$ lineal. |
+| **ED-10** | `/api/v1/structures/priority/simulate` | `POST` con 1.001 tareas | `400 Bad Request` | Error de validación por superar el límite de 1.000 tareas. | Salvaguarda contra sobrecarga de memoria en el servidor. |
+
+---
+
+## Comandos curl para Reproducción de Estructuras de Datos (ED-01 a ED-10)
+
+```bash
+# ED-01: Health check
+curl -X GET "http://localhost:3000/health"
+
+# ED-02: Cola FIFO de pedidos
+curl -X POST "http://localhost:3000/api/v1/structures/queue/simulate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "orders": [
+      { "id": "ORD-A", "table": 1, "items": ["Pizza Napolitana"] },
+      { "id": "ORD-B", "table": 2, "items": ["Pasta Carbonara"] },
+      { "id": "ORD-C", "table": 3, "items": ["Ensalada César"] }
+    ]
+  }'
+
+# ED-03: Cola de prioridad / Heap de cocina
+curl -X POST "http://localhost:3000/api/v1/structures/priority/simulate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tasks": [
+      { "id": "TASK-50", "description": "Hamburguesa", "urgency": "normal", "waitingMinutes": 0 },
+      { "id": "TASK-101", "description": "Lomo al Trapo", "urgency": "urgente", "waitingMinutes": 1 },
+      { "id": "TASK-40", "description": "Bebida", "urgency": "baja", "waitingMinutes": 30 }
+    ]
+  }'
+
+# ED-04: Historial de borrador (Pila Undo restaura ítem eliminado)
+curl -X POST "http://localhost:3000/api/v1/structures/stack/simulate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "actions": [
+      { "type": "ADD_ITEM", "itemId": "ITEM-1", "name": "Hamburguesa", "quantity": 1 },
+      { "type": "UPDATE_QUANTITY", "itemId": "ITEM-1", "quantity": 2 },
+      { "type": "REMOVE_ITEM", "itemId": "ITEM-1" },
+      { "type": "UNDO" }
+    ]
+  }'
+
+# ED-05: Pila Redo vaciada tras nueva acción post-undo
+curl -X POST "http://localhost:3000/api/v1/structures/stack/simulate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "actions": [
+      { "type": "ADD_ITEM", "itemId": "ITEM-1", "name": "Hamburguesa", "quantity": 1 },
+      { "type": "UNDO" },
+      { "type": "ADD_ITEM", "itemId": "ITEM-2", "name": "Papas Fritas", "quantity": 1 }
+    ]
+  }'
+
+# ED-06: Ruta óptima plano fijo (kitchen -> terrace = 21s)
+curl -X GET "http://localhost:3000/api/v1/structures/graph/default-route?from=kitchen&to=terrace"
+
+# ED-07: Grafo con arista de costo negativo (Rechazo 400)
+curl -X POST "http://localhost:3000/api/v1/structures/graph/shortest-path" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nodes": ["kitchen", "terrace"],
+    "edges": [{ "from": "kitchen", "to": "terrace", "cost": -1 }],
+    "startNode": "kitchen",
+    "targetNode": "terrace"
+  }'
+
+# ED-08: Grafo sin camino alcanzable (200 OK con reachable: false)
+curl -X POST "http://localhost:3000/api/v1/structures/graph/shortest-path" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nodes": ["kitchen", "bar", "island"],
+    "edges": [{ "from": "kitchen", "to": "bar", "cost": 5 }],
+    "startNode": "kitchen",
+    "targetNode": "island"
+  }'
+
+# ED-09: Índice Map vs búsqueda lineal
+curl -X POST "http://localhost:3000/api/v1/structures/index/simulate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "orders": [
+      { "id": "ORD-101", "table": 4, "total": 45000, "clientName": "Valeria" },
+      { "id": "ORD-102", "table": 2, "total": 60000, "clientName": "Andrés" }
+    ],
+    "searchIds": ["ORD-101"]
+  }'
+
+# ED-10: Matriz comparativa académica de estructuras
+curl -X GET "http://localhost:3000/api/v1/structures/compare"
+```
+

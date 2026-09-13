@@ -14,6 +14,7 @@
     "start:prod": "node dist/main",
     "test": "jest",
     "test:verify": "ts-node scripts/verify-phase1.ts",
+    "test:structures": "ts-node scripts/verify-structures.ts",
     "orders:view": "ts-node scripts/view-orders.ts"
   },
   "dependencies": {

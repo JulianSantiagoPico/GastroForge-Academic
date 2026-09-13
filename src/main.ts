@@ -10,12 +10,14 @@ async function bootstrap() {
   // Habilitar CORS para permitir consumo desde frontends y herramientas externas
   app.enableCors({
     origin: '*',
-    methods: 'GET,HEAD,OPTIONS',
+    methods: 'GET,HEAD,POST,OPTIONS',
   });
 
   // Middleware para dar soporte transparente tanto a rutas con /api/v1 como a rutas directas
   app.use((req: Request, _res: Response, next: NextFunction) => {
     if (req.url.startsWith('/academic') && !req.url.startsWith('/api/v1/academic')) {
+      req.url = `/api/v1${req.url}`;
+    } else if (req.url.startsWith('/structures') && !req.url.startsWith('/api/v1/structures')) {
       req.url = `/api/v1${req.url}`;
     } else if (req.url === '/health') {
       req.url = '/api/v1/health';
@@ -48,6 +50,7 @@ async function bootstrap() {
     .setVersion('1.0.0')
     .addTag('Health', 'Verificación de estado y disponibilidad')
     .addTag('Academic-Analysis', 'Algoritmos y pruebas de complejidad computacional')
+    .addTag('Data-Structures', 'Estructuras de datos y simulaciones académicas')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

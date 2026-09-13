@@ -105,16 +105,29 @@ GastroForge-Academic/
 | `/api/v1/academic/quadratic?size=2000` | `GET` | Comparación de pares cuadrática con límite seguro de ejecución ($n \le 2000$). |
 | `/api/v1/academic/loyalty?targets=42,72,120` | `GET` | Resolución de semanas en progresión aritmética en tiempo $O(1)$. |
 | `/api/v1/academic/sales-forecast?daysAhead=2,5,7` | `GET` | Regresión lineal y proyecciones de ventas a futuro. |
+| `/api/v1/structures/queue/simulate` | `POST` | Simulación de cola FIFO con lista enlazada $O(1)$ para pedidos. |
+| `/api/v1/structures/priority/simulate` | `POST` | Simulación de cola de prioridad con MinHeap $O(\log n)$ para cocina. |
+| `/api/v1/structures/stack/simulate` | `POST` | Historial reversible de borrador con pilas Undo / Redo $O(1)$. |
+| `/api/v1/structures/graph/default-route` | `GET` | Ruta mínima en el plano fijo del restaurante con Dijkstra ($O((V+E)\log V)$). |
+| `/api/v1/structures/graph/shortest-path` | `POST` | Dijkstra sobre un grafo personalizado con validación de aristas. |
+| `/api/v1/structures/index/simulate` | `POST` | Acceso hash $O(1)$ con Map vs búsqueda lineal secuencial $O(n)$. |
+| `/api/v1/structures/compare` | `GET` | Matriz comparativa académica de estructuras de datos. |
 | `/api/v1/docs` | `GET` | Interfaz interactiva OpenAPI / Swagger. |
 
 ---
 
 ## 🧪 Verificación Automatizada de Pruebas
 
-Para validar automáticamente todos los casos del protocolo de pruebas académicas (**PA-01** a **PA-11**):
+Para validar automáticamente los casos del protocolo de complejidad algorítmica (**PA-01** a **PA-11**):
 
 ```bash
 npm run test:verify
+```
+
+Para validar automáticamente los casos de la unidad de estructuras de datos (**ED-01** a **ED-10**):
+
+```bash
+npm run test:structures
 ```
 
 ---
@@ -126,3 +139,4 @@ El repositorio incluye un `Dockerfile` optimizado en múltiples etapas (*multi-s
 2. **Entorno:** Seleccionar **Docker** (detectará automáticamente el `Dockerfile`).
 3. **Health Check Path:** Configurar `/health`.
 4. **Variables de entorno:** `PORT=3000`, `NODE_ENV=production`.
+

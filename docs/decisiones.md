@@ -52,3 +52,40 @@ Este documento fundamenta las decisiones técnicas y metodológicas adoptadas en
   - Se restringe el rango numérico permitido ($1 \le n \le 100.000$).
   - Se rechazan tipos inválidos (cadenas no numéricas, números negativos, valores nulos).
   - Se evita la denegación de servicio accidental o intencionada antes de asignar memoria en el servidor.
+
+---
+
+## 7. Decisiones de Diseño para la Unidad 2: Estructuras de Datos (`StructuresModule`)
+
+### 7.1. Separación modular e independencia académica
+- **Justificación:** Se integró un módulo dedicado (`StructuresModule`) bajo el prefijo `/api/v1/structures` sin modificar `AcademicAnalysisModule`. Esto preserva la responsabilidad única y permite evaluar de forma independiente los análisis asintóticos de la Unidad 1 y las estructuras de datos aplicadas de la Unidad 2.
+
+### 7.2. Cola FIFO con Lista Enlazada vs. Arreglo Convencional (`Array.shift`)
+- **Justificación:** En JavaScript/TypeScript, invocar `Array.prototype.shift()` sobre un arreglo convencional tiene un costo asintótico $O(n)$, ya que el motor V8 debe reindexar todos los elementos restantes hacia la izquierda.
+- **Implementación:** Se construyó una clase pura `Queue<T>` basada en una lista simplemente enlazada con punteros a `head` y `tail`. Esto garantiza complejidad $O(1)$ estricta y demostrable en `enqueue`, `dequeue` y `peek`.
+- **Caso de uso:** Expresa equidad en la toma de comandas por orden estricto de llegada.
+
+### 7.3. Montículo Binario (`MinHeap<T>`) vs. Ordenamiento Repetido (`Array.sort`)
+- **Justificación:** Ordenar un arreglo con `Array.sort()` tras cada nuevo pedido en cocina demanda $O(n \log n)$. 
+- **Implementación:** El `MinHeap` genérico con comparador configurable mantiene la propiedad de montículo binario:
+  - Inserción (`insert`) en $O(\log n)$ mediante flotación (`bubbleUp`).
+  - Extracción de la raíz óptima (`extractMin`) en $O(\log n)$ mediante hundimiento (`bubbleDown`).
+  - Consulta del elemento más urgente (`peek`) en $O(1)$.
+- **Prioridad Efectiva:** Se implementó la regla didáctica transparente $\text{effectivePriority} = \text{basePriority} + \text{waitingMinutes}$ (Urgente = 100, Normal = 50, Baja = 10), garantizando que pedidos demorados o críticos sean despachados prioritariamente.
+
+### 7.4. Pila LIFO (`Stack<T>`) con doble stack para historial reversible (Undo / Redo)
+- **Justificación:** Gestionar el borrador de un pedido requiere revertir acciones en orden inverso al que se aplicaron (semántica LIFO).
+- **Implementación:**
+  1. Cada mutación reversible (`ADD_ITEM`, `UPDATE_QUANTITY`, `REMOVE_ITEM`) se apila en `undoStack` en $O(1)$.
+  2. La acción `UNDO` desapila la última mutación, aplica su inversa determinista y la almacena en `redoStack`.
+  3. Cualquier acción nueva realizada después de deshacer purga y vacía completamente `redoStack`, garantizando coherencia del árbol de estados.
+
+### 7.5. Grafo Ponderado y Algoritmo de Dijkstra con MinHeap propio
+- **Justificación:** Para calcular la ruta óptima de servicio entre cocina, pasillo, barra, mesas y terraza, las distancias/tiempos de tránsito son variables y no negativos.
+- **Implementación:** Lista de adyacencia (`Map<string, Edge[]>`) y algoritmo de Dijkstra impulsado por el `MinHeap` propio. Esto reduce la complejidad de $O(V^2)$ a $O((V + E) \log V)$.
+- **Pesos no negativos:** Se rechazan aristas negativas (HTTP 400), pues invalidarían el principio de optimalidad greedy de Dijkstra.
+- **Justificación teórica frente a BFS:** Dijkstra se justifica únicamente por la presencia de pesos variables y no negativos. Si todas las aristas tuvieran el mismo costo, una Búsqueda en Anchura (BFS) sería la elección más simple y eficiente ($O(V + E)$).
+
+### 7.6. Índice `Map` vs. Búsqueda Lineal Secuencial
+- **Justificación:** Demostrar empíricamente la diferencia entre acceso directo por tabla hash $O(1)$ promedio (`map.get(id)`) y recorrido secuencial $O(n)$ sobre listas no indexadas. En entornos de alta concurrencia, la indexación en memoria complementa la persistencia relacional.
+
