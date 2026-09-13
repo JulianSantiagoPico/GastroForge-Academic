@@ -154,6 +154,6 @@ El repositorio incluye un `Dockerfile` optimizado en múltiples etapas (*multi-s
 Proyecto desarrollado para la asignatura **Programación Avanzada** - **Institución Universitaria Pascual Bravo**:
 
 - **Julián Santiago Pico** - [@JulianSantiagoPico](https://github.com/JulianSantiagoPico) (`julpic08@gmail.com`)
-- **Jhonatan Méndez** - (`jhonatan.mendez664@pascualbravo.edu.co`)
+- **Jhonatan Méndez** - [@JhonatanM2005](https://github.com/JhonatanM2005) (`ing.jhonatanmendez05@gmail.com`)
 
 
