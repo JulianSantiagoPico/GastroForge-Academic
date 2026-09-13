@@ -4,6 +4,9 @@ Repositorio independiente para el ejercicio de **Complejidad Computacional y Alg
 
 Este proyecto implementa una API REST pública, determinista y de solo lectura construida con **NestJS** y **TypeScript**, diseñada para permitir la verificación empírica y teórica de las órdenes de complejidad computacional ($O(1)$, $O(n)$, $O(n^2)$, $O(\log n)$) sobre colecciones de pedidos simulados en memoria sin requerir bases de datos ni autenticación.
 
+> 🌐 **API y Documentación Swagger en Producción (Render):**  
+> [https://gastroforge-academic.onrender.com/docs](https://gastroforge-academic.onrender.com/docs)
+
 ---
 
 ## 🚀 Características Principales
@@ -134,9 +137,23 @@ npm run test:structures
 
 ## ☁️ Despliegue en Render
 
+El servicio se encuentra desplegado y disponible en la nube:
+- 🌐 **Swagger UI / Documentación de la API:** [https://gastroforge-academic.onrender.com/docs](https://gastroforge-academic.onrender.com/docs)
+- 🩺 **Health Check:** [https://gastroforge-academic.onrender.com/health](https://gastroforge-academic.onrender.com/health)
+
 El repositorio incluye un `Dockerfile` optimizado en múltiples etapas (*multi-stage build*):
 1. **Crear un nuevo Web Service en Render:** Conectar el repositorio de GitHub.
 2. **Entorno:** Seleccionar **Docker** (detectará automáticamente el `Dockerfile`).
 3. **Health Check Path:** Configurar `/health`.
 4. **Variables de entorno:** `PORT=3000`, `NODE_ENV=production`.
+
+---
+
+## 👥 Contribuidores
+
+Proyecto desarrollado para la asignatura **Programación Avanzada** - **Institución Universitaria Pascual Bravo**:
+
+- **Julián Santiago Pico** - [@JulianSantiagoPico](https://github.com/JulianSantiagoPico) (`julpic08@gmail.com`)
+- **Jhonatan Méndez** - (`jhonatan.mendez664@pascualbravo.edu.co`)
+
 
