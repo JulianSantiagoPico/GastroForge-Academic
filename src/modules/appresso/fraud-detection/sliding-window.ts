@@ -117,6 +117,24 @@ interface UserWindowState {
  * 3. Borde temporal inclusivo: eventos con `receivedAt >= now - windowMs` pertenecen a la ventana;
  *    eventos con `receivedAt < now - windowMs` se purgan.
  * 4. Aislamiento por usuario y detección de reintentos mediante idempotencia por `idTxn`.
+ *
+ * Límites de alcance decididos en A1.2b y respetados deliberadamente por esta clase:
+ *
+ * - **Zona horaria fija: `UTC`.** Todo el razonamiento temporal del detector es aritmética sobre
+ *   `Unix epoch` en milisegundos, que ya es un instante absoluto y no depende de zona horaria ni de
+ *   hora de verano. Fijar `UTC` hace que la misma traza produzca el mismo resultado en local, en
+ *   staging y en producción, sin configuración por entorno. Ninguna regla de este archivo convierte
+ *   `receivedAt` a fecha local.
+ * - **Base temporal autoritativa: `receivedAt` (timestamp del servidor).** La pertenencia a la ventana
+ *   se determina exclusivamente por `receivedAt`. El campo de negocio `date` viaja en el evento
+ *   únicamente como dato declarativo del emisor: es falsificable por el cliente y jamás participa en
+ *   el conteo ni en el cálculo del umbral.
+ * - **Franjas horarias (mañana 10, tarde-noche 6, noche-madrugada 3) NO se implementan en la Ola 1.**
+ *   Son un umbral distinto, dependiente de calendario, y mezclarlas aquí obligaría a que el núcleo
+ *   puro dependiera de un reloj, de una zona horaria y de un calendario. Si se implementan, deben
+ *   vivir en una capa superior que componga este detector (por ejemplo, un decorador de franjas que
+ *   delegue el conteo aquí), nunca mezcladas dentro de `processEvent`. Esta clase se mantiene sin
+ *   dependencias externas, sin acceso a disco y sin lectura del reloj.
  */
 export class SlidingWindowDetector {
   private readonly windowMs: number;

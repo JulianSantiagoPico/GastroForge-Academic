@@ -89,3 +89,24 @@ Este documento fundamenta las decisiones técnicas y metodológicas adoptadas en
 ### 7.6. Índice `Map` vs. Búsqueda Lineal Secuencial
 - **Justificación:** Demostrar empíricamente la diferencia entre acceso directo por tabla hash $O(1)$ promedio (`map.get(id)`) y recorrido secuencial $O(n)$ sobre listas no indexadas. En entornos de alta concurrencia, la indexación en memoria complementa la persistencia relacional.
 
+---
+
+## 8. Appresso: PostgreSQL durable con fallback in-memory (desvío del criterio "in-memory y determinista")
+
+Esta sección registra de forma explícita una **desviación deliberada** de la decisión registrada en la sección 1 de este mismo documento.
+
+- **Criterio original (sección 1):** todo el proyecto es in-memory y determinista, sin base de datos relacional, para que la medición de complejidad no dependa de la latencia de disco ni de la red.
+
+- **Decisión adoptada (A1.0):** el módulo Appresso implementa la **Opción B (PostgreSQL durable) con fallback automático a in-memory**. La selección ocurre en el arranque: si existe la variable de entorno `DATABASE_URL` se usa PostgreSQL mediante TypeORM; si no existe, se inyecta un `InMemoryEntityManager` con la misma interfaz de repositorio. Redis queda como opción comparativa para una Ola 2.
+
+- **Justificación de la desviación:** el módulo Appresso no mide únicamente complejidad asintótica; recibe el tráfico de un bot externo y debe sostener **durabilidad, idempotencia y concurrencia** bajo carga controlada. Con solo in-memory se pierden tres garantías que el enunciado exige: la idempotencia por `idTxn` no sobrevive a un reinicio, dos réplicas del servicio no comparten el conteo de la ventana y el estado de un episodio `OPEN` se reinicia. La reproducibilidad del módulo de análisis algorítmico (sección 1) no se sacrifica: se conserva intacta y se aplica una base de datos **solo** al módulo Appresso.
+
+- **Consecuencias aceptadas:**
+  1. Appresso introduce I/O real, con lo que su latencia deja de ser una métrica de complejidad pura y pasa a ser una métrica de capacidad (motivo por el cual el reporte de carga debe separar el origen de los rechazos).
+  2. El determinismo del algoritmo de ventana deslizante **no depende** de la base de datos: `SlidingWindowDetector` sigue siendo una clase pura sin acceso a disco ni al reloj del sistema, y su comportamiento está cubierto por pruebas unitarias deterministas.
+  3. Sigue siendo posible ejecutar y probar todo el módulo sin ninguna base de datos externa, gracias al fallback in-memory.
+
+- **Riesgo aceptado:** en modo in-memory el estado **no se comparte entre réplicas** y se pierde al reiniciar. Es un modo de desarrollo y demostración, no de producción. El modo in-memory además serializa la concurrencia por usuario con un mutex en proceso (`src/modules/appresso/transactions/user-mutex.ts`), mientras que PostgreSQL usa `pg_advisory_xact_lock` con una clave estable derivada de SHA-256 del identificador de usuario.
+
+- **Trazabilidad:** la ambigüedad se cerró durante la Ola 1; el detalle de concurrencia y de cierre de episodios quedó registrado en `odd/tasks/appresso-ola1-corrections.md`.
+
