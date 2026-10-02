@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, Eye, ShieldAlert, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react';
 import { AnomalyEpisodeListItem } from '../types/api';
+import { formatUtcDateTime } from '../utils/date';
 
 interface EpisodesTableProps {
   episodes: AnomalyEpisodeListItem[];
@@ -132,10 +133,10 @@ export const EpisodesTable: React.FC<EpisodesTableProps> = React.memo(({
                   className="hover:bg-slate-800/30 transition-colors group cursor-pointer"
                   onClick={() => onSelectEpisode(ep.id)}
                 >
-                  <td className="py-3 px-4 font-mono text-sky-400 group-hover:underline">
+                  <td className="py-3 px-4 font-mono text-sky-400 group-hover:underline" title={ep.id}>
                     {ep.id.substring(0, 8)}...
                   </td>
-                  <td className="py-3 px-4 font-mono text-slate-300">
+                  <td className="py-3 px-4 font-mono text-slate-300" title={ep.userId}>
                     {ep.userId.substring(0, 10)}...
                   </td>
                   <td className="py-3 px-4 text-slate-300 font-medium">
@@ -146,7 +147,7 @@ export const EpisodesTable: React.FC<EpisodesTableProps> = React.memo(({
                     {ep.transactionCount}
                   </td>
                   <td className="py-3 px-4 text-slate-400 font-mono tabular-nums">
-                    {new Date(ep.openedAt).toLocaleString('es-CO')}
+                    {formatUtcDateTime(ep.openedAt)}
                   </td>
                   <td className="py-3 px-4 text-center">
                     <button

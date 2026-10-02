@@ -82,9 +82,9 @@ export interface AnomalyEpisodeListItem {
   userId: string;
   rule: string;
   status: 'OPEN' | 'CLOSED' | 'REVIEWED' | 'DISMISSED';
-  openedAt: number;
-  updatedAt: number;
-  closedAt?: number | null;
+  openedAt: number | string;
+  updatedAt: number | string;
+  closedAt?: number | string | null;
   transactionCount: number;
   transactionIds: string[];
   notes?: string | null;
