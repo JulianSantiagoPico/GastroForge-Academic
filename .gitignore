@@ -23,3 +23,6 @@ Thumbs.db
 # Jest / Coverage
 coverage/
 *.tsbuildinfo
+
+# Reportes generados por las simulaciones de carga (scripts/simulate-bot-load.ts)
+reports/
