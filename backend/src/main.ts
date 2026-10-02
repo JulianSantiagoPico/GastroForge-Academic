@@ -1,3 +1,7 @@
+import * as dotenv from 'dotenv';
+import { join } from 'path';
+dotenv.config({ path: [join(process.cwd(), 'backend', '.env'), join(process.cwd(), '.env')] });
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
