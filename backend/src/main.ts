@@ -7,9 +7,16 @@ import { Request, Response, NextFunction } from 'express';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Habilitar CORS para permitir consumo desde frontends y herramientas externas
+  // Escuchar señales de apagado del sistema (SIGTERM/SIGINT) para liberar conexiones limpiamente
+  app.enableShutdownHooks();
+
+  // Habilitar CORS para permitir consumo desde frontends (ej. Vercel) y herramientas externas
+  const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+    : '*';
+
   app.enableCors({
-    origin: '*',
+    origin: allowedOrigins,
     methods: 'GET,HEAD,POST,OPTIONS',
   });
 
