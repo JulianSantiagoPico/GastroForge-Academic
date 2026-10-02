@@ -12,6 +12,7 @@ import { MetricCards } from './components/MetricCards';
 import { TimeseriesChart } from './components/TimeseriesChart';
 import { EpisodesTable } from './components/EpisodesTable';
 import { TimelineDrawer } from './components/TimelineDrawer';
+import { TrafficSimulator } from './components/TrafficSimulator';
 import { LoadingSkeleton, ErrorMessage } from './components/States';
 
 export const App: React.FC = () => {
@@ -209,7 +210,17 @@ export const App: React.FC = () => {
               />
             </section>
 
-            {/* 3. Listado de episodios */}
+            {/* 3. Simulador de Tráfico */}
+            <section>
+              <TrafficSimulator
+                onSimulationComplete={() => {
+                  loadMetrics();
+                  loadEpisodes();
+                }}
+              />
+            </section>
+
+            {/* 4. Listado de episodios */}
             <section>
               <EpisodesTable
                 episodes={episodes}

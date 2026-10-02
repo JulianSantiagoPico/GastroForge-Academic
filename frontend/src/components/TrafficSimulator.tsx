@@ -1,4 +1,13 @@
 import React, { useState } from 'react';
+import {
+  Zap,
+  Play,
+  RotateCw,
+  ShieldCheck,
+  AlertTriangle,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react';
 import { api } from '../services/api';
 import { SimulationBurstResponse } from '../types/api';
 
@@ -37,151 +46,214 @@ export const TrafficSimulator: React.FC<TrafficSimulatorProps> = ({ onSimulation
   };
 
   return (
-    <div className="card" style={{ marginTop: '1.5rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+    <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl shadow-lg shadow-black/20 backdrop-blur-sm overflow-hidden">
+      {/* Header */}
+      <div className="p-5 border-b border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Simulador de Tráfico Interactivo</h3>
-          <p style={{ margin: '0.25rem 0 0 0', color: 'var(--color-text-secondary, #666)', fontSize: '0.875rem' }}>
-            Prueba la conexión al backend y observa el comportamiento de la ventana deslizante bajo ráfagas controladas.
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <Zap className="w-4 h-4" />
+            </div>
+            <h3 className="text-base font-semibold text-white">Simulador de Tráfico Interactivo</h3>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Genera ráfagas de prueba firmadas en backend para evaluar la ventana deslizante y la detección de anomalías en tiempo real.
           </p>
         </div>
-        <span className="badge badge-info" style={{ padding: '0.35rem 0.65rem' }}>Firma Segura en Backend</span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20 self-start sm:self-auto">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          Firma Segura en Backend
+        </span>
       </div>
 
-      <form onSubmit={handleRunSimulation} style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '1rem' }}>
-        <div style={{ flex: '1 1 200px' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.35rem', fontWeight: 500 }}>
-            Identificador de Usuario:
-          </label>
-          <input
-            type="text"
-            value={user}
-            onChange={(e) => setUser(e.target.value)}
-            disabled={loading}
-            className="input"
-            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-            placeholder="ej. cliente-vip-01"
-            required
-          />
+      {/* Form Controls */}
+      <form onSubmit={handleRunSimulation} className="p-5 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+              Identificador de Usuario
+            </label>
+            <input
+              type="text"
+              value={user}
+              onChange={(e) => setUser(e.target.value)}
+              disabled={loading}
+              placeholder="ej. cliente-vip-01"
+              required
+              className="w-full bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-sky-500 font-mono disabled:opacity-50"
+            />
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="block text-xs font-medium text-slate-300">
+                Transacciones
+              </label>
+              <span className="text-xs font-mono font-bold text-sky-400">
+                {count} {count === 1 ? 'txn' : 'txns'}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="20"
+              value={count}
+              onChange={(e) => setCount(parseInt(e.target.value, 10))}
+              disabled={loading}
+              className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500 disabled:opacity-50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+              Intervalo entre Txns (ms)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="2000"
+              step="50"
+              value={delayMs}
+              onChange={(e) => setDelayMs(parseInt(e.target.value, 10) || 0)}
+              disabled={loading}
+              className="w-full bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-sky-500 font-mono disabled:opacity-50"
+            />
+          </div>
+
+          <div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-sky-500 text-slate-950 hover:bg-sky-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+            >
+              {loading ? (
+                <>
+                  <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Disparando Ráfaga...</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Disparar Ráfaga</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
-        <div style={{ flex: '0 1 120px' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.35rem', fontWeight: 500 }}>
-            Transacciones: {count}
-          </label>
-          <input
-            type="range"
-            min="1"
-            max="20"
-            value={count}
-            onChange={(e) => setCount(parseInt(e.target.value, 10))}
-            disabled={loading}
-            style={{ width: '100%' }}
-          />
-        </div>
-
-        <div style={{ flex: '0 1 140px' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.35rem', fontWeight: 500 }}>
-            Intervalo (ms):
-          </label>
-          <input
-            type="number"
-            min="0"
-            max="2000"
-            step="50"
-            value={delayMs}
-            onChange={(e) => setDelayMs(parseInt(e.target.value, 10) || 0)}
-            disabled={loading}
-            className="input"
-            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="btn btn-primary"
-          style={{
-            padding: '0.55rem 1.25rem',
-            background: loading ? '#888' : '#2563eb',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            fontWeight: 600,
-          }}
-        >
-          {loading ? 'Disparando Ráfaga...' : 'Disparar Ráfaga'}
-        </button>
+        {error && (
+          <div className="flex items-center gap-2 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-xs">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
       </form>
 
-      {error && (
-        <div style={{ padding: '0.75rem', background: '#fee2e2', color: '#991b1b', borderRadius: '4px', marginBottom: '1rem', fontSize: '0.875rem' }}>
-          {error}
-        </div>
-      )}
-
+      {/* Results Section */}
       {response && (
-        <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-            <div>
-              <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>Enviadas</span>
-              <strong style={{ fontSize: '1.1rem' }}>{response.summary.sent}</strong>
+        <div className="p-5 border-t border-slate-800/60 bg-slate-950/30 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Resumen de Ejecución
+            </h4>
+            <span className="text-[11px] font-mono text-slate-500">
+              Usuario: {response.summary.userId}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            <div className="bg-slate-900/60 border border-slate-800/80 rounded-lg p-3 text-center">
+              <span className="text-[10px] uppercase font-semibold text-slate-400 block mb-0.5">
+                Enviadas
+              </span>
+              <span className="text-lg font-bold font-mono text-white tabular-nums">
+                {response.summary.sent}
+              </span>
             </div>
-            <div>
-              <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>Aceptadas</span>
-              <strong style={{ fontSize: '1.1rem', color: '#16a34a' }}>{response.summary.accepted}</strong>
+
+            <div className="bg-slate-900/60 border border-slate-800/80 rounded-lg p-3 text-center">
+              <span className="text-[10px] uppercase font-semibold text-slate-400 block mb-0.5">
+                Aceptadas
+              </span>
+              <span className="text-lg font-bold font-mono text-emerald-400 tabular-nums">
+                {response.summary.accepted}
+              </span>
             </div>
-            <div>
-              <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>Anomalías</span>
-              <strong style={{ fontSize: '1.1rem', color: response.summary.anomalies > 0 ? '#dc2626' : '#64748b' }}>
+
+            <div className="bg-slate-900/60 border border-slate-800/80 rounded-lg p-3 text-center">
+              <span className="text-[10px] uppercase font-semibold text-slate-400 block mb-0.5">
+                Anomalías
+              </span>
+              <span
+                className={`text-lg font-bold font-mono tabular-nums ${
+                  response.summary.anomalies > 0 ? 'text-rose-400' : 'text-slate-400'
+                }`}
+              >
                 {response.summary.anomalies}
-              </strong>
+              </span>
             </div>
-            <div>
-              <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>Latencia Media</span>
-              <strong style={{ fontSize: '1.1rem' }}>{response.summary.avgLatencyMs} ms</strong>
+
+            <div className="bg-slate-900/60 border border-slate-800/80 rounded-lg p-3 text-center">
+              <span className="text-[10px] uppercase font-semibold text-slate-400 block mb-0.5">
+                Latencia Media
+              </span>
+              <span className="text-lg font-bold font-mono text-white tabular-nums">
+                {response.summary.avgLatencyMs} ms
+              </span>
             </div>
-            <div>
-              <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>Tiempo Total</span>
-              <strong style={{ fontSize: '1.1rem' }}>{response.summary.totalDurationMs} ms</strong>
+
+            <div className="bg-slate-900/60 border border-slate-800/80 rounded-lg p-3 text-center col-span-2 sm:col-span-1">
+              <span className="text-[10px] uppercase font-semibold text-slate-400 block mb-0.5">
+                Tiempo Total
+              </span>
+              <span className="text-lg font-bold font-mono text-white tabular-nums">
+                {response.summary.totalDurationMs} ms
+              </span>
             </div>
           </div>
 
-          <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #cbd5e1', textAlign: 'left', color: '#475569' }}>
-                <th style={{ padding: '0.5rem' }}>Txn ID</th>
-                <th style={{ padding: '0.5rem' }}>Latencia</th>
-                <th style={{ padding: '0.5rem' }}>Conteo Ventana</th>
-                <th style={{ padding: '0.5rem' }}>Umbral / Franja</th>
-                <th style={{ padding: '0.5rem' }}>Resultado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {response.results.map((r) => (
-                <tr key={r.idTxn} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>{r.idTxn.substring(0, 24)}...</td>
-                  <td style={{ padding: '0.5rem' }}>{r.latencyMs} ms</td>
-                  <td style={{ padding: '0.5rem' }}>{r.anomaly.windowCount}</td>
-                  <td style={{ padding: '0.5rem' }}>
-                    {r.anomaly.threshold} ({r.anomaly.timeBand || 'UTC'})
-                  </td>
-                  <td style={{ padding: '0.5rem' }}>
-                    {r.anomaly.detected ? (
-                      <span style={{ background: '#fef2f2', color: '#b91c1c', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 600 }}>
-                        ALERTA FRAUDE
-                      </span>
-                    ) : (
-                      <span style={{ background: '#f0fdf4', color: '#15803d', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
-                        NORMAL
-                      </span>
-                    )}
-                  </td>
+          <div className="overflow-x-auto rounded-lg border border-slate-800/60">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-800/60 bg-slate-950/60 text-slate-400 uppercase tracking-wider font-semibold">
+                  <th className="py-2.5 px-3">Txn ID</th>
+                  <th className="py-2.5 px-3">Latencia</th>
+                  <th className="py-2.5 px-3">Conteo Ventana</th>
+                  <th className="py-2.5 px-3">Umbral / Franja</th>
+                  <th className="py-2.5 px-3 text-right">Resultado</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-800/40 font-mono">
+                {response.results.map((r) => (
+                  <tr key={r.idTxn} className="hover:bg-slate-800/20 transition-colors">
+                    <td className="py-2 px-3 text-slate-300">
+                      {r.idTxn.substring(0, 18)}...
+                    </td>
+                    <td className="py-2 px-3 text-slate-400 tabular-nums">
+                      {r.latencyMs} ms
+                    </td>
+                    <td className="py-2 px-3 text-slate-300 tabular-nums">
+                      {r.anomaly.windowCount}
+                    </td>
+                    <td className="py-2 px-3 text-slate-400">
+                      {r.anomaly.threshold} ({r.anomaly.timeBand || 'UTC'})
+                    </td>
+                    <td className="py-2 px-3 text-right">
+                      {r.anomaly.detected ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-sans font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                          <AlertTriangle className="w-3 h-3" /> ALERTA FRAUDE
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-sans font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <CheckCircle2 className="w-3 h-3" /> NORMAL
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
