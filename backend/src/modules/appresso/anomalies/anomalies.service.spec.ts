@@ -67,6 +67,46 @@ describe('AnomaliesService (A5.1 - A5.3)', () => {
     expect(result.page).toBe(1);
   });
 
+  it('normaliza campos bigint devueltos como string por PostgreSQL a números', async () => {
+    const now = Date.now();
+    mockEpisodes.push({
+      id: 'ep-pg-1',
+      userId: 'user-02',
+      rule: 'POSIBLE_FRAUDE',
+      status: EpisodeStatus.OPEN,
+      openedAt: '1772658192000',
+      updatedAt: String(now),
+      closedAt: null,
+      transactionCount: '5',
+    });
+    mockEpisodes.push({
+      id: 'ep-pg-2',
+      userId: 'user-03',
+      rule: 'POSIBLE_FRAUDE',
+      status: EpisodeStatus.CLOSED,
+      openedAt: '1772658190000',
+      updatedAt: '1772658200000',
+      closedAt: '1772658300000',
+      transactionCount: '10',
+    });
+
+    const result = await service.getAnomalies({ page: 1, limit: 10 });
+    const ep1 = result.data.find((e) => e.id === 'ep-pg-1');
+    expect(ep1).toBeDefined();
+    expect(typeof ep1?.openedAt).toBe('number');
+    expect(ep1?.openedAt).toBe(1772658192000);
+    expect(typeof ep1?.updatedAt).toBe('number');
+    expect(ep1?.closedAt).toBeNull();
+    expect(typeof ep1?.transactionCount).toBe('number');
+    expect(ep1?.transactionCount).toBe(5);
+
+    const ep2 = result.data.find((e) => e.id === 'ep-pg-2');
+    expect(ep2).toBeDefined();
+    expect(typeof ep2?.closedAt).toBe('number');
+    expect(ep2?.closedAt).toBe(1772658300000);
+    expect(ep2?.transactionCount).toBe(10);
+  });
+
   it('obtiene resumen estadístico agregado de anomalías', async () => {
     const summary = await service.getSummary();
     expect(summary.totalEpisodes).toBe(5);

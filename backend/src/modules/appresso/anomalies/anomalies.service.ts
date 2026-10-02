@@ -113,8 +113,16 @@ export class AnomaliesService {
 
     const [data, total] = await query.getManyAndCount();
 
+    const normalizedData = data.map((ep) => ({
+      ...ep,
+      openedAt: ep.openedAt != null ? Number(ep.openedAt) : ep.openedAt,
+      updatedAt: ep.updatedAt != null ? Number(ep.updatedAt) : ep.updatedAt,
+      closedAt: ep.closedAt != null ? Number(ep.closedAt) : null,
+      transactionCount: ep.transactionCount != null ? Number(ep.transactionCount) : 0,
+    }));
+
     return {
-      data,
+      data: normalizedData,
       total,
       page,
       limit,
