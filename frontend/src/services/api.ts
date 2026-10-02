@@ -4,6 +4,8 @@ import {
   EpisodeTimeline,
   AnomalyListResponse,
   TimeseriesBucket,
+  SimulationBurstParams,
+  SimulationBurstResponse,
 } from '../types/api';
 
 /**
@@ -99,6 +101,41 @@ export class AppressoApiClient {
       page,
       limit,
     });
+  }
+
+  async runSimulationBurst(params: SimulationBurstParams): Promise<SimulationBurstResponse> {
+    const origin =
+      typeof window !== 'undefined' && window.location
+        ? window.location.origin
+        : 'http://localhost:3000';
+    const url = new URL(`${this.baseUrl}/appresso/simulation/burst`, origin);
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.message) {
+          errorMessage = Array.isArray(errorJson.message)
+            ? errorJson.message.join(', ')
+            : errorJson.message;
+        }
+      } catch {
+        // fallback
+      }
+      throw new Error(errorMessage);
+    }
+
+    return await response.json();
   }
 }
 

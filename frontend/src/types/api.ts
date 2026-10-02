@@ -96,3 +96,38 @@ export interface AnomalyListResponse {
   page: number;
   limit: number;
 }
+
+export interface SimulationBurstParams {
+  user?: string;
+  count: number;
+  delayMs?: number;
+  paymentMethod?: string;
+}
+
+export interface SimulationResultItem {
+  idTxn: string;
+  status: string;
+  isDuplicate: boolean;
+  latencyMs: number;
+  anomaly: {
+    detected: boolean;
+    rule?: string;
+    windowCount: number;
+    threshold: number;
+    timeBand?: string;
+    episodeId?: string;
+  };
+}
+
+export interface SimulationBurstResponse {
+  summary: {
+    sent: number;
+    accepted: number;
+    anomalies: number;
+    avgLatencyMs: number;
+    totalDurationMs: number;
+    userId: string;
+  };
+  results: SimulationResultItem[];
+}
+

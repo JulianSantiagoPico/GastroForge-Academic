@@ -84,6 +84,26 @@ describe('AppressoApiClient (W5 Frontend Adapter)', () => {
       'Episodio no encontrado',
     );
   });
+
+  it('ejecuta ráfaga simulada enviando payload JSON', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        summary: { sent: 3, accepted: 3, anomalies: 1 },
+        results: [],
+      }),
+    });
+
+    const result = await client.runSimulationBurst({ user: 'client-1', count: 3, delayMs: 10 });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const calledUrl = mockFetch.mock.calls[0][0];
+    const options = mockFetch.mock.calls[0][1];
+    expect(calledUrl).toContain('/api/v1/appresso/simulation/burst');
+    expect(options.method).toBe('POST');
+    expect(JSON.parse(options.body)).toEqual({ user: 'client-1', count: 3, delayMs: 10 });
+    expect(result.summary.sent).toBe(3);
+  });
 });
 
 describe('Metric Formatters (W5)', () => {

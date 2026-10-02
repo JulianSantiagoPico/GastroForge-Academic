@@ -11,6 +11,7 @@ import { MetricCards } from './components/MetricCards';
 import { TimeseriesChart } from './components/TimeseriesChart';
 import { EpisodesTable } from './components/EpisodesTable';
 import { TimelineDrawer } from './components/TimelineDrawer';
+import { TrafficSimulator } from './components/TrafficSimulator';
 import { LoadingSkeleton, ErrorMessage } from './components/States';
 import './App.css';
 
@@ -193,6 +194,16 @@ export const App: React.FC = () => {
                 onPageChange={(page) => setEpisodesPage(page)}
                 onSelectEpisode={handleSelectEpisode}
                 isLoading={isEpisodesLoading}
+              />
+            </section>
+
+            {/* 4. Simulador interactivo de conexiones y ráfagas */}
+            <section className="section-simulator">
+              <TrafficSimulator
+                onSimulationComplete={() => {
+                  loadMetrics();
+                  loadEpisodes();
+                }}
               />
             </section>
           </>

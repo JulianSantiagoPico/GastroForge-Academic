@@ -5,6 +5,7 @@ import { AppressoTransactionsController } from './transactions/transactions.cont
 import { AppressoAnomaliesController } from './anomalies/anomalies.controller';
 import { AppressoMetricsController } from './metrics/appresso-metrics.controller';
 import { AppressoAnalyticsController } from './analytics/analytics.controller';
+import { SimulationController } from './simulation/simulation.controller';
 import { TransactionsService } from './transactions/transactions.service';
 import { AnomaliesService } from './anomalies/anomalies.service';
 import { AppressoMetricsService } from './metrics/appresso-metrics.service';
@@ -33,6 +34,7 @@ const isPostgres = !!process.env.DATABASE_URL;
     AppressoAnomaliesController,
     AppressoMetricsController,
     AppressoAnalyticsController,
+    SimulationController,
   ],
   providers: [
     TransactionsService,
