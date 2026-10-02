@@ -37,7 +37,14 @@ export class InMemoryEntityManager {
     return await runInTransaction(this);
   }
 
-  getRepository(entity: any) {
+  /**
+   * Devuelve un repositorio con el subconjunto de la API de TypeORM que usa el módulo.
+   *
+   * El tipo de retorno es `any` a propósito: las operaciones se despachan por la clase de entidad
+   * que se solicita y este adaptador no puede expresar un `Repository<T>` real. La interfaz es la
+   * que el módulo consume, no la superficie completa de TypeORM.
+   */
+  getRepository(entity: any): any {
     const isTxn = entity === AppressoTransactionEntity || entity?.name === 'AppressoTransactionEntity';
     const isEpisode = entity === AppressoAnomalyEpisodeEntity || entity?.name === 'AppressoAnomalyEpisodeEntity';
 
@@ -75,6 +82,15 @@ export class InMemoryEntityManager {
             }
           }
           return null;
+        },
+        find: async ({ where }: any = {}) => {
+          const all = Array.from(this.episodes.values());
+          if (!where || where.status === undefined) {
+            return all;
+          }
+          // El repositorio real filtra en SQL; aquí el filtro se aplica en memoria. Suficiente
+          // para un fallback de desarrollo, no para reproducibilidad de carga.
+          return all.filter((ep) => ep.status === where.status);
         },
         save: async (entityToSave: AppressoAnomalyEpisodeEntity) => {
           const id = entityToSave.id || `ep-uuid-${Date.now()}`;

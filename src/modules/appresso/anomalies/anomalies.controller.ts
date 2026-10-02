@@ -15,6 +15,7 @@ import {
   ApiQuery,
   ApiParam,
 } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import {
   AnomaliesService,
   QueryAnomaliesFilter,
@@ -36,6 +37,9 @@ export class UpdateAnomalyStatusDto {
 
 @ApiTags('Appresso - Detección de Fraude')
 @Controller('appresso/anomalies')
+// A1.4: la lectura de anomalías no depende del limitador global. Devolver 429 mientras se consulta
+// la evidencia impediría evaluarla, y el detector no se puede medir con un 429 delante.
+@SkipThrottle()
 export class AppressoAnomaliesController {
   constructor(private readonly anomaliesService: AnomaliesService) {}
 
