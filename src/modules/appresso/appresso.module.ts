@@ -12,6 +12,7 @@ import { AppressoRejectOriginInterceptor } from './throttling/appresso-reject-or
 import { AppressoTransactionEntity } from './persistence/entities/transaction.entity';
 import { AppressoAnomalyEpisodeEntity } from './persistence/entities/anomaly-episode.entity';
 import { InMemoryEntityManager } from './persistence/in-memory-entity-manager';
+import { TimeBandPolicy } from './fraud-detection/time-band-policy';
 
 const isPostgres = !!process.env.DATABASE_URL;
 
@@ -35,6 +36,7 @@ const isPostgres = !!process.env.DATABASE_URL;
     AppressoMetricsService,
     AppressoThrottlerGuard,
     AppressoRejectOriginInterceptor,
+    TimeBandPolicy,
     ...(isPostgres
       ? []
       : [
@@ -54,6 +56,11 @@ const isPostgres = !!process.env.DATABASE_URL;
           },
         ]),
   ],
-  exports: [TransactionsService, AnomaliesService, AppressoMetricsService],
+  exports: [
+    TransactionsService,
+    AnomaliesService,
+    AppressoMetricsService,
+    TimeBandPolicy,
+  ],
 })
 export class AppressoModule {}

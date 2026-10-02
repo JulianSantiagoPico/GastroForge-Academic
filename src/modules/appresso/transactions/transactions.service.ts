@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { CreateAppressoTransactionDto } from '../dto/create-transaction.dto';
@@ -24,6 +25,7 @@ import {
   APPRESSO_WINDOW_MS,
 } from '../appresso.constants';
 import { AppressoMetricsService, METRIC } from '../metrics/appresso-metrics.service';
+import { TimeBandPolicy } from '../fraud-detection/time-band-policy';
 
 export interface ProcessTransactionResponse {
   status: 'ACCEPTED';
@@ -36,6 +38,8 @@ export interface ProcessTransactionResponse {
     episodeId?: string;
     windowCount: number;
     threshold: number;
+    timeBand?: string;
+    windowMs?: number;
   };
 }
 
@@ -68,6 +72,7 @@ export class TransactionsService {
   private readonly logger = new Logger(TransactionsService.name);
   private readonly detector: SlidingWindowDetector;
   private readonly episodeManager: AnomalyEpisodeManager;
+  private readonly timeBandPolicy: TimeBandPolicy;
   private readonly userMutex = new KeyedMutex();
 
   private readonly windowMs = APPRESSO_WINDOW_MS;
@@ -79,7 +84,10 @@ export class TransactionsService {
   constructor(
     private readonly entityManager: EntityManager,
     private readonly metrics: AppressoMetricsService,
+    @Optional() timeBandPolicy?: TimeBandPolicy,
   ) {
+    this.timeBandPolicy =
+      timeBandPolicy ?? new TimeBandPolicy({ windowMs: this.windowMs });
     this.detector = new SlidingWindowDetector({
       windowMs: this.windowMs,
       threshold: this.threshold,
@@ -147,6 +155,7 @@ export class TransactionsService {
       if (existingTxn) {
         this.metrics.increment(METRIC.DUPLICATES_HANDLED);
         const isAnomaly = !!existingTxn.anomalyEpisodeId;
+        const dupBand = this.timeBandPolicy.evaluate(Number(existingTxn.receivedAt));
         return {
           status: 'ACCEPTED',
           idTxn: existingTxn.idTxn,
@@ -157,25 +166,34 @@ export class TransactionsService {
             rule: isAnomaly ? APPRESSO_RULE_NAME : undefined,
             episodeId: existingTxn.anomalyEpisodeId,
             windowCount: 0,
-            threshold: this.threshold,
+            threshold: dupBand.threshold,
+            timeBand: dupBand.band,
+            windowMs: this.windowMs,
           },
         };
       }
 
-      // 2c. Tiempo de recepción autoritativo del servidor. `date` es dato del emisor y no
+      // 2c. Tiempo de recepción autoritativo del servidor en UTC. `date` es dato del emisor y no
       //     participa en el cálculo de la ventana.
       const receivedAt = Date.now();
 
-      // 2d. Evaluación pura de la ventana deslizante
-      const evaluation = this.detector.processEvent({
-        idTxn: dto.idTxn,
-        userId: dto.user,
-        receivedAt,
-        value: dto.value,
-        currency: dto.currency,
-        paymentMethod: dto.paymentMethod,
-        date: dto.date,
-      });
+      // 2c.1 Evaluación de franja horaria y umbral aplicable en UTC (W2)
+      const bandEval = this.timeBandPolicy.evaluate(receivedAt);
+      const effectiveThreshold = bandEval.threshold;
+
+      // 2d. Evaluación pura de la ventana deslizante con el umbral dinámico de la franja
+      const evaluation = this.detector.processEvent(
+        {
+          idTxn: dto.idTxn,
+          userId: dto.user,
+          receivedAt,
+          value: dto.value,
+          currency: dto.currency,
+          paymentMethod: dto.paymentMethod,
+          date: dto.date,
+        },
+        effectiveThreshold,
+      );
 
       let episodeId: string | undefined;
 
@@ -187,12 +205,19 @@ export class TransactionsService {
         // futuras del mismo usuario acabarían actualizando un único episodio para siempre.
         this.episodeManager.checkAndCloseExpired(receivedAt);
 
+        const episodeNotes = JSON.stringify({
+          timeBand: bandEval.band,
+          threshold: effectiveThreshold,
+          windowMs: this.windowMs,
+        });
+
         const episode = this.episodeManager.recordAnomaly({
           userId: dto.user,
           rule: evaluation.rule,
           txnId: dto.idTxn,
           timestamp: receivedAt,
           windowTxnIds: evaluation.windowEvents.map((e) => e.idTxn),
+          notes: episodeNotes,
         });
         episodeId = episode.id;
 
@@ -231,12 +256,14 @@ export class TransactionsService {
             updatedAt: episode.updatedAt,
             transactionCount: episode.transactionCount,
             transactionIds: episode.transactionIds,
+            notes: episodeNotes,
           });
         } else {
           this.metrics.increment(METRIC.ANOMALIES_UPDATED);
           episodeEntity.updatedAt = episode.updatedAt;
           episodeEntity.transactionCount = episode.transactionCount;
           episodeEntity.transactionIds = episode.transactionIds;
+          episodeEntity.notes = episodeNotes;
         }
 
         await episodeRepo.save(episodeEntity);
@@ -268,7 +295,9 @@ export class TransactionsService {
           rule: evaluation.isAnomaly ? evaluation.rule : undefined,
           episodeId,
           windowCount: evaluation.count,
-          threshold: this.threshold,
+          threshold: effectiveThreshold,
+          timeBand: bandEval.band,
+          windowMs: this.windowMs,
         },
       };
     });

@@ -27,6 +27,7 @@ export interface RecordAnomalyInput {
   txnId: string;
   timestamp: number;
   windowTxnIds: string[];
+  notes?: string;
 }
 
 export interface AnomalyEpisodeManagerConfig {
@@ -71,6 +72,7 @@ export class AnomalyEpisodeManager {
         const set = new Set([...existing.transactionIds, ...input.windowTxnIds, input.txnId]);
         existing.transactionIds = Array.from(set);
         existing.transactionCount = existing.transactionIds.length;
+        if (input.notes) existing.notes = input.notes;
         return existing;
       }
     }
@@ -86,6 +88,7 @@ export class AnomalyEpisodeManager {
       updatedAt: input.timestamp,
       transactionIds: Array.from(new Set([...input.windowTxnIds, input.txnId])),
       transactionCount: Array.from(new Set([...input.windowTxnIds, input.txnId])).length,
+      notes: input.notes,
     };
 
     this.episodesById.set(id, newEpisode);

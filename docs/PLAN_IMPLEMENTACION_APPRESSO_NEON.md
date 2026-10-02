@@ -89,16 +89,16 @@ La ventana temporal conserva un ancho configurable común. La franja horaria sel
 
 **Tareas**
 
-- [ ] Implementar una política pura que reciba `receivedAt` y devuelva franja y límite en UTC:
+- [x] Implementar una política pura que reciba `receivedAt` y devuelva franja y límite en UTC:
   - mañana: 05:00:01–12:00:00, límite 10;
   - tarde-noche: 12:00:01–20:00:00, límite 6;
   - noche-madrugada: 20:00:01–05:00:00, límite 3.
-- [ ] Cargar `APPRESSO_WINDOW_MS` y las franjas/umbrales desde configuración validada al iniciar. Usar valores por defecto académicos, pero no constantes rígidas en el caso de uso.
-- [ ] Validar que las franjas cubran exactamente las 24 horas, no se solapen y tengan umbrales enteros positivos.
-- [ ] Definir y probar todos los bordes de segundo, incluido el cruce de medianoche.
-- [ ] Componer la política en el caso de uso de ingestión, no en `sliding-window.ts`.
-- [ ] Definir y probar el borde de franja: la franja de `receivedAt` del evento actual determina su umbral, aunque la ventana contenga eventos recibidos segundos antes en otra franja.
-- [ ] Añadir tests de aislamiento por usuario e idempotencia ante reintento para cada franja.
+- [x] Cargar `APPRESSO_WINDOW_MS` y las franjas/umbrales desde configuración validada al iniciar. Usar valores por defecto académicos, pero no constantes rígidas en el caso de uso.
+- [x] Validar que las franjas cubran exactamente las 24 horas, no se solapen y tengan umbrales enteros positivos.
+- [x] Definir y probar todos los bordes de segundo, incluido el cruce de medianoche.
+- [x] Componer la política en el caso de uso de ingestión, no en `sliding-window.ts`.
+- [x] Definir y probar el borde de franja: la franja de `receivedAt` del evento actual determina su umbral, aunque la ventana contenga eventos recibidos segundos antes en otra franja.
+- [x] Añadir tests de aislamiento por usuario e idempotencia ante reintento para cada franja.
 
 **Criterios de aceptación**
 

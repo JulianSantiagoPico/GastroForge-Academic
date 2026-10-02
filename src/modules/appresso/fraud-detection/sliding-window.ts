@@ -176,9 +176,12 @@ export class SlidingWindowDetector {
 
   /**
    * Procesa un evento entrante y evalúa la regla de detección.
+   * Admite opcionalmente un `thresholdOverride` calculado por políticas externas (como franjas horarias),
+   * manteniendo el detector puro sin dependencias temporales ni de calendario.
    */
-  processEvent(event: WindowEvent): WindowEvaluationResult {
+  processEvent(event: WindowEvent, thresholdOverride?: number): WindowEvaluationResult {
     const state = this.getOrCreateUserState(event.userId);
+    const effectiveThreshold = thresholdOverride ?? this.threshold;
 
     // 1. Detección de duplicado / idempotencia
     if (state.seenTxnIds.has(event.idTxn)) {
@@ -189,8 +192,8 @@ export class SlidingWindowDetector {
         currentEvent: event,
         windowMs: this.windowMs,
         count,
-        threshold: this.threshold,
-        isAnomaly: count >= this.threshold,
+        threshold: effectiveThreshold,
+        isAnomaly: count >= effectiveThreshold,
         rule: this.ruleName,
         isDuplicate: true,
         windowEvents: state.queue.toArray(),
@@ -217,14 +220,14 @@ export class SlidingWindowDetector {
 
     // 5. Evaluar umbral
     const count = state.queue.size();
-    const isAnomaly = count >= this.threshold;
+    const isAnomaly = count >= effectiveThreshold;
 
     return {
       userId: event.userId,
       currentEvent: event,
       windowMs: this.windowMs,
       count,
-      threshold: this.threshold,
+      threshold: effectiveThreshold,
       isAnomaly,
       rule: this.ruleName,
       isDuplicate: false,

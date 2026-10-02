@@ -3,6 +3,7 @@ import { TransactionsService } from './transactions.service';
 import { AppressoMetricsService, METRIC } from '../metrics/appresso-metrics.service';
 import { CreateAppressoTransactionDto } from '../dto/create-transaction.dto';
 import { computeHmac } from '../crypto/hmac';
+import { TimeBandName } from '../fraud-detection/time-band-policy';
 
 describe('TransactionsService (A3.1 - A3.5)', () => {
   const SECRET = 'test-appresso-secret';
@@ -231,6 +232,82 @@ describe('TransactionsService (A3.1 - A3.5)', () => {
       expect(second.anomaly.detected).toBe(true);
       expect(storedEpisodes.size).toBe(2);
       expect(second.anomaly.episodeId).not.toBe(first.anomaly.episodeId);
+    });
+  });
+
+  describe('política de límites por franja horaria en UTC (W2)', () => {
+    let dateSpy: jest.SpyInstance;
+
+    afterEach(() => {
+      if (dateSpy) dateSpy.mockRestore();
+    });
+
+    it('aplica umbral 10 en la mañana (05:00:01 - 12:00:00 UTC) y persiste franja en respuesta', async () => {
+      // 09:00:00 UTC (mañana)
+      dateSpy = jest.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 9, 1, 9, 0, 0));
+
+      const res = await service.processTransaction(createValidDto({ idTxn: 'm-1' }));
+      expect(res.anomaly.timeBand).toBe(TimeBandName.MANANA);
+      expect(res.anomaly.threshold).toBe(10);
+      expect(res.anomaly.windowMs).toBe(3000);
+      expect(res.anomaly.detected).toBe(false);
+    });
+
+    it('borde de franja: la franja de receivedAt del evento actual determina su umbral', async () => {
+      const user = 'cross-band-user';
+
+      // Evento 1 a las 11:59:59.000 UTC (MANANA, umbral 10)
+      dateSpy = jest.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 9, 1, 11, 59, 59, 0));
+      await service.processTransaction(createValidDto({ idTxn: 'cb-1', user }));
+
+      // Evento 2 a las 11:59:59.500 UTC (MANANA, umbral 10)
+      dateSpy.mockReturnValue(Date.UTC(2026, 9, 1, 11, 59, 59, 500));
+      await service.processTransaction(createValidDto({ idTxn: 'cb-2', user }));
+
+      // Evento 3 a las 12:00:01.000 UTC (TARDE_NOCHE, umbral 6)
+      // La ventana de 3000ms aún cubre cb-1 y cb-2 (están dentro de 12:00:01 - 3000 = 11:59:58).
+      // El conteo es 3, pero como la franja actual es TARDE_NOCHE (umbral 6), no es anomalía.
+      dateSpy.mockReturnValue(Date.UTC(2026, 9, 1, 12, 0, 1, 0));
+      const res3 = await service.processTransaction(createValidDto({ idTxn: 'cb-3', user }));
+
+      expect(res3.anomaly.timeBand).toBe(TimeBandName.TARDE_NOCHE);
+      expect(res3.anomaly.threshold).toBe(6);
+      expect(res3.anomaly.windowCount).toBe(3);
+      expect(res3.anomaly.detected).toBe(false);
+    });
+
+    it('dispara anomalía en NOCHE_MADRUGADA (umbral 3) y persiste metadata para auditoría', async () => {
+      const user = 'night-user';
+      // 22:00:00 UTC (NOCHE_MADRUGADA, umbral 3)
+      dateSpy = jest.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 9, 1, 22, 0, 0, 0));
+
+      await service.processTransaction(createValidDto({ idTxn: 'n-1', user }));
+      await service.processTransaction(createValidDto({ idTxn: 'n-2', user }));
+      const res3 = await service.processTransaction(createValidDto({ idTxn: 'n-3', user }));
+
+      expect(res3.anomaly.timeBand).toBe(TimeBandName.NOCHE_MADRUGADA);
+      expect(res3.anomaly.threshold).toBe(3);
+      expect(res3.anomaly.detected).toBe(true);
+
+      const savedEpisode = storedEpisodes.get(res3.anomaly.episodeId);
+      expect(savedEpisode).toBeDefined();
+      expect(savedEpisode.notes).toContain(TimeBandName.NOCHE_MADRUGADA);
+    });
+
+    it('reintento en franja posterior mantiene idempotencia y no recalcula en ventana', async () => {
+      const user = 'retry-band-user';
+      dateSpy = jest.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 9, 1, 10, 0, 0));
+      const initial = await service.processTransaction(createValidDto({ idTxn: 'ret-1', user }));
+
+      expect(initial.isDuplicate).toBe(false);
+
+      // Reintento en otra hora
+      dateSpy.mockReturnValue(Date.UTC(2026, 9, 1, 15, 0, 0));
+      const retry = await service.processTransaction(createValidDto({ idTxn: 'ret-1', user }));
+
+      expect(retry.isDuplicate).toBe(true);
+      expect(retry.anomaly.windowCount).toBe(0);
+      expect(retry.receivedAt).toBe(initial.receivedAt);
     });
   });
 });
