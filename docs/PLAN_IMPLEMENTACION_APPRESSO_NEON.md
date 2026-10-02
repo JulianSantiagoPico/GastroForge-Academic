@@ -157,12 +157,12 @@ La ventana temporal conserva un ancho configurable común. La franja horaria sel
 
 **Tareas**
 
-- [ ] Definir DTOs con intervalo UTC explícito, límites máximos y validación de `bucket`.
-- [ ] Implementar overview con: transacciones por día/semana/mes, anomalías nuevas/abiertas/revisadas/descartadas, porcentaje sospechoso, usuarios afectados, usuarios recurrentes, valor sospechoso y promedio por usuario.
-- [ ] Implementar serie temporal de actividad y anomalías por hora/día, agrupada en SQL.
-- [ ] Implementar línea de tiempo de episodio a partir de `openedAt`, actualizaciones, cierre y transacciones asociadas.
-- [ ] Crear los índices necesarios según `EXPLAIN ANALYZE` sobre una muestra representativa; incluirlos en una migración.
-- [ ] Mantener `AppressoMetricsService` para telemetría de proceso, pero no usarlo como fuente de históricos del dashboard.
+- [x] Definir DTOs con intervalo UTC explícito, límites máximos y validación de `bucket`.
+- [x] Implementar overview con: transacciones por día/semana/mes, anomalías nuevas/abiertas/revisadas/descartadas, porcentaje sospechoso, usuarios afectados, usuarios recurrentes, valor sospechoso y promedio por usuario.
+- [x] Implementar serie temporal de actividad y anomalías por hora/día, agrupada en SQL.
+- [x] Implementar línea de tiempo de episodio a partir de `openedAt`, actualizaciones, cierre y transacciones asociadas.
+- [x] Crear los índices necesarios según `EXPLAIN ANALYZE` sobre una muestra representativa; incluirlos en una migración.
+- [x] Mantener `AppressoMetricsService` para telemetría de proceso, pero no usarlo como fuente de históricos del dashboard.
 
 **Nota sobre usuarios e IP**
 
@@ -246,7 +246,7 @@ Para W1, W3 y W6, ejecutar además las migraciones, la verificación de degradac
 - [x] Neon configurado por entorno y migraciones aplicadas.
 - [x] Franjas horarias implementadas y testeadas.
 - [x] Redis configurado como estado temporal, con degradación y recuperación verificadas.
-- [ ] Analítica durable y series temporales disponibles.
+- [x] Analítica durable y series temporales disponibles.
 - [ ] Dashboard mínimo operativo.
 - [ ] Carga controlada con SLO y reporte reproducible.
 

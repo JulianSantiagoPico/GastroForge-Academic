@@ -39,6 +39,7 @@ export class AppressoTransactionEntity {
   @Column({ type: 'varchar', length: 64 })
   hmacSignature: string;
 
+  @Index()
   @Column({ type: 'uuid', nullable: true })
   anomalyEpisodeId?: string;
 

@@ -4,9 +4,11 @@ import { EntityManager } from 'typeorm';
 import { AppressoTransactionsController } from './transactions/transactions.controller';
 import { AppressoAnomaliesController } from './anomalies/anomalies.controller';
 import { AppressoMetricsController } from './metrics/appresso-metrics.controller';
+import { AppressoAnalyticsController } from './analytics/analytics.controller';
 import { TransactionsService } from './transactions/transactions.service';
 import { AnomaliesService } from './anomalies/anomalies.service';
 import { AppressoMetricsService } from './metrics/appresso-metrics.service';
+import { AppressoAnalyticsService } from './analytics/analytics.service';
 import { AppressoThrottlerGuard } from './throttling/appresso-throttler.guard';
 import { AppressoRejectOriginInterceptor } from './throttling/appresso-reject-origin.interceptor';
 import { AppressoTransactionEntity } from './persistence/entities/transaction.entity';
@@ -30,11 +32,13 @@ const isPostgres = !!process.env.DATABASE_URL;
     AppressoTransactionsController,
     AppressoAnomaliesController,
     AppressoMetricsController,
+    AppressoAnalyticsController,
   ],
   providers: [
     TransactionsService,
     AnomaliesService,
     AppressoMetricsService,
+    AppressoAnalyticsService,
     AppressoThrottlerGuard,
     AppressoRejectOriginInterceptor,
     TimeBandPolicy,
@@ -62,6 +66,7 @@ const isPostgres = !!process.env.DATABASE_URL;
     TransactionsService,
     AnomaliesService,
     AppressoMetricsService,
+    AppressoAnalyticsService,
     TimeBandPolicy,
     RedisSlidingWindowAdapter,
   ],

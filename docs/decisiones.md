@@ -133,4 +133,14 @@ Para llevar Appresso a un entorno de staging/producción real sobre Neon Postgre
 - **Reconstrucción acotada:** Al pasar a estado `HALF_OPEN`, la recuperación no consulta el historial completo; únicamente sincroniza los eventos activos (`receivedAt >= now - windowMs`) desde PostgreSQL hacia Redis.
 - **Idempotencia estricta en PostgreSQL:** PostgreSQL es la única fuente de verdad para la detección de duplicados. Una transacción repetida devuelve el estado previamente registrado y jamás altera el Sorted Set en Redis ni incrementa los conteos de la ventana.
 
+---
+
+## 11. Read Model Analítico para el Dashboard (W4)
+
+- **Separación de telemetría y consultas analíticas:** `AppressoMetricsService` conserva contadores de proceso para observabilidad interna (ej. fallos de Redis, HMAC o locks), mientras que `AppressoAnalyticsService` expone agregados históricos durables desde PostgreSQL para alimentar el panel de fraude.
+- **Agregaciones SQL nativas sin barridos en memoria:** Los endpoints `/overview` y `/timeseries` ejecutan agregaciones directamente en el motor relacional (`COUNT`, `SUM`, `FILTER`, `date_trunc`), garantizando que la carga de cálculo y paginación recaiga en índices optimizados de PostgreSQL, sin hacer `Array.filter`/`reduce` sobre historiales extensos.
+- **Indexación complementaria en Neon:** La migración `1727800000001-AddAnalyticsIndexes.ts` añade índices en `appresso_transactions(anomalyEpisodeId)`, `appresso_anomaly_episodes(openedAt)` y `appresso_anomaly_episodes(status)` para asegurar tiempos de respuesta submilisegundos en rangos de fechas y trazabilidad cronológica de episodios.
+- **Derivación de recurrencia sin PII superflua:** La tasa de usuarios recurrentes y afectados se deriva directamente agrupando por `userId`, evitando crear tablas ornamentales de perfiles o persistir direcciones IP sin justificación de retención ni auditoría de privacidad.
+
+
 

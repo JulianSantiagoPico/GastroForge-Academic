@@ -21,6 +21,7 @@ export class AppressoAnomalyEpisodeEntity {
   @Column({ type: 'varchar', length: 64 })
   rule: string;
 
+  @Index()
   @Column({
     type: 'varchar',
     length: 20,
@@ -28,6 +29,7 @@ export class AppressoAnomalyEpisodeEntity {
   })
   status: EpisodeStatus;
 
+  @Index()
   @Column({ type: 'bigint' })
   openedAt: number; // Unix epoch ms
 
