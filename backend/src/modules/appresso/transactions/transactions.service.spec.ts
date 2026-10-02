@@ -13,9 +13,13 @@ describe('TransactionsService (A3.1 - A3.5)', () => {
   let mockTxnRepo: any;
   let mockEpisodeRepo: any;
   let storedEpisodes: Map<string, any>;
+  let defaultDateSpy: jest.SpyInstance;
+  let simulatedTime: number;
 
   beforeEach(() => {
     process.env.APPRESSO_HMAC_SECRET = SECRET;
+    simulatedTime = Date.UTC(2026, 9, 1, 22, 0, 0, 0); // 22:00:00 UTC -> NOCHE_MADRUGADA (umbral = 3)
+    defaultDateSpy = jest.spyOn(Date, 'now').mockImplementation(() => simulatedTime);
 
     const storedTransactions = new Map<string, any>();
     storedEpisodes = new Map<string, any>();
@@ -67,6 +71,12 @@ describe('TransactionsService (A3.1 - A3.5)', () => {
 
     metrics = new AppressoMetricsService();
     service = new TransactionsService(mockEntityManager as any, metrics);
+  });
+
+  afterEach(() => {
+    if (defaultDateSpy) {
+      defaultDateSpy.mockRestore();
+    }
   });
 
   const createValidDto = (overrides?: Partial<CreateAppressoTransactionDto>): CreateAppressoTransactionDto => {
@@ -228,8 +238,8 @@ describe('TransactionsService (A3.1 - A3.5)', () => {
       expect(first.anomaly.detected).toBe(true);
       expect(storedEpisodes.size).toBe(1);
 
-      // Se espera a que la ventana venza por completo.
-      await new Promise((resolve) => setTimeout(resolve, 3200));
+      // Se avanza el reloj simulado para que la ventana (3000ms) venza por completo.
+      simulatedTime += 3500;
 
       // Segunda ráfaga: sin el cierre perezoso, el detector seguiría apuntando al episodio
       // original y todas las anomalías futuras se accumulateían en un único episodio.
