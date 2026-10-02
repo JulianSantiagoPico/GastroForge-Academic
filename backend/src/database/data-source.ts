@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { AppressoTransactionEntity } from '../modules/appresso/persistence/entities/transaction.entity';
 import { AppressoAnomalyEpisodeEntity } from '../modules/appresso/persistence/entities/anomaly-episode.entity';
@@ -44,4 +47,3 @@ export const dataSourceOptions: DataSourceOptions = {
 };
 
 export const AppDataSource = new DataSource(dataSourceOptions);
-export default AppDataSource;
