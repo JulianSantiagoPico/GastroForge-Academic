@@ -1,8 +1,11 @@
 import { AnomaliesService } from './anomalies.service';
 import { EpisodeStatus } from './anomaly-episode';
+import { AppressoMetricsService, METRIC } from '../metrics/appresso-metrics.service';
+import { APPRESSO_WINDOW_MS } from '../appresso.constants';
 
 describe('AnomaliesService (A5.1 - A5.3)', () => {
   let service: AnomaliesService;
+  let metrics: AppressoMetricsService;
   let mockRepo: any;
   const mockEpisodes: any[] = [];
 
@@ -20,6 +23,12 @@ describe('AnomaliesService (A5.1 - A5.3)', () => {
       }),
       findOne: jest.fn().mockImplementation(async ({ where }: any) => {
         return mockEpisodes.find((ep) => ep.id === where.id) || null;
+      }),
+      find: jest.fn().mockImplementation(async ({ where }: any = {}) => {
+        if (!where || where.status === undefined) {
+          return [...mockEpisodes];
+        }
+        return mockEpisodes.filter((ep) => ep.status === where.status);
       }),
       save: jest.fn().mockImplementation(async (entity: any) => {
         const idx = mockEpisodes.findIndex((e) => e.id === entity.id);
@@ -39,7 +48,8 @@ describe('AnomaliesService (A5.1 - A5.3)', () => {
       ]),
     };
 
-    service = new AnomaliesService(mockRepo);
+    metrics = new AppressoMetricsService();
+    service = new AnomaliesService(mockRepo, metrics);
   });
 
   it('lista episodios paginados con filtros', async () => {
@@ -88,5 +98,83 @@ describe('AnomaliesService (A5.1 - A5.3)', () => {
     await expect(
       service.updateStatus('ep-closed', EpisodeStatus.OPEN),
     ).rejects.toThrow(/un episodio CLOSED nunca se reabre/i);
+  });
+
+  describe('cierre de episodios expirados (C6.0 - C6.1)', () => {
+    it('cierra un episodio OPEN cuyos eventos ya no están vigentes', async () => {
+      const now = 1_000_000;
+      mockEpisodes.push({
+        id: 'ep-stale',
+        userId: 'user-01',
+        rule: 'POSIBLE_FRAUDE',
+        status: EpisodeStatus.OPEN,
+        updatedAt: now - APPRESSO_WINDOW_MS - 1,
+        transactionCount: 3,
+      });
+
+      const closed = await service.closeExpiredEpisodes(now);
+
+      expect(closed).toBe(1);
+      expect(mockEpisodes[0].status).toBe(EpisodeStatus.CLOSED);
+      expect(mockEpisodes[0].closedAt).toBe(now);
+      expect(metrics.snapshot().counters[METRIC.EPISODES_CLOSED]).toBe(1);
+    });
+
+    it('respeta el borde exacto: updatedAt === now - W sigue vigente (comparación estricta)', async () => {
+      const now = 2_000_000;
+      mockEpisodes.push({
+        id: 'ep-boundary',
+        userId: 'user-01',
+        rule: 'POSIBLE_FRAUDE',
+        status: EpisodeStatus.OPEN,
+        updatedAt: now - APPRESSO_WINDOW_MS,
+        transactionCount: 3,
+      });
+
+      const closed = await service.closeExpiredEpisodes(now);
+
+      expect(closed).toBe(0);
+      expect(mockEpisodes[0].status).toBe(EpisodeStatus.OPEN);
+      expect(mockEpisodes[0].closedAt).toBeUndefined();
+    });
+
+    it('nunca reescribe un episodio ya cerrado, revisado o descartado', async () => {
+      const now = 3_000_000;
+      for (const status of [
+        EpisodeStatus.CLOSED,
+        EpisodeStatus.REVIEWED,
+        EpisodeStatus.DISMISSED,
+      ]) {
+        mockEpisodes.push({
+          id: `ep-${status}`,
+          userId: 'user-01',
+          rule: 'POSIBLE_FRAUDE',
+          status,
+          updatedAt: now - APPRESSO_WINDOW_MS - 5000,
+          transactionCount: 3,
+        });
+      }
+
+      const closed = await service.closeExpiredEpisodes(now);
+
+      expect(closed).toBe(0);
+      expect(mockEpisodes.every((ep) => ep.closedAt === undefined)).toBe(true);
+    });
+
+    it('cierra episodios vencidos antes de devolver un listado', async () => {
+      const now = Date.now();
+      mockEpisodes.push({
+        id: 'ep-listing',
+        userId: 'user-01',
+        rule: 'POSIBLE_FRAUDE',
+        status: EpisodeStatus.OPEN,
+        updatedAt: now - APPRESSO_WINDOW_MS - 1,
+        transactionCount: 3,
+      });
+
+      await service.getAnomalies({ page: 1, limit: 10 });
+
+      expect(mockEpisodes[0].status).toBe(EpisodeStatus.CLOSED);
+    });
   });
 });

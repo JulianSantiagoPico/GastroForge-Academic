@@ -2,11 +2,14 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AppressoAnomalyEpisodeEntity } from '../persistence/entities/anomaly-episode.entity';
 import { EpisodeStatus } from './anomaly-episode';
+import { APPRESSO_WINDOW_MS } from '../appresso.constants';
+import { AppressoMetricsService, METRIC } from '../metrics/appresso-metrics.service';
 
 export interface QueryAnomaliesFilter {
   userId?: string;
@@ -28,15 +31,65 @@ export interface AnomaliesSummary {
 
 @Injectable()
 export class AnomaliesService {
+  private readonly logger = new Logger(AnomaliesService.name);
+
   constructor(
     @InjectRepository(AppressoAnomalyEpisodeEntity)
     private readonly episodeRepo: Repository<AppressoAnomalyEpisodeEntity>,
+    private readonly metrics: AppressoMetricsService,
   ) {}
+
+  /**
+   * Cierra los episodios OPEN cuyos eventos ya no están vigentes (A1.2a, A6.0).
+   *
+   * Condición: `now - updatedAt > windowMs`, con comparación **estricta**. `closedAt` toma el
+   * instante de la comprobación, no el instante estimado de expiración, porque es el momento en
+   * que el sistema constató la ausencia de actividad.
+   *
+   * Por qué se cierra aquí y no llamando a `AnomalyEpisodeManager.checkAndCloseExpired`: ese
+   * gestor es una estructura **en memoria** propiedad de `TransactionsService`, mientras que este
+   * servicio consulta el **repositorio**. Invocarlo desde aquí cerraría una instancia distinta y
+   * no tocaría la base de datos. El cierre autoritativo sobre datos persistidos se hace aquí; el
+   * gestor en memoria se cierra en su propio camino, dentro de la ingesta.
+   *
+   * Solo se cierran episodios OPEN: la regla de que un episodio CLOSED nunca se reabre y nunca se
+   * reescribe se mantiene intacta.
+   */
+  async closeExpiredEpisodes(now: number = Date.now()): Promise<number> {
+    const openEpisodes = await this.episodeRepo.find({
+      where: { status: EpisodeStatus.OPEN },
+    });
+
+    const expired = openEpisodes.filter(
+      (episode) => now - Number(episode.updatedAt) > APPRESSO_WINDOW_MS,
+    );
+
+    if (expired.length === 0) {
+      return 0;
+    }
+
+    for (const episode of expired) {
+      episode.status = EpisodeStatus.CLOSED;
+      episode.closedAt = now;
+      await this.episodeRepo.save(episode);
+    }
+
+    this.metrics.increment(METRIC.EPISODES_CLOSED, expired.length);
+    this.logger.log(
+      `Episodios de anomalía cerrados por expiración: ${expired.length} (now=${now}, ventana=${APPRESSO_WINDOW_MS}ms)`,
+    );
+
+    return expired.length;
+  }
 
   /**
    * Consulta paginada de episodios de anomalías con filtros opcionales (A5.1).
    */
   async getAnomalies(filter: QueryAnomaliesFilter) {
+    // Cierre perezoso antes de leer: un listado no debe mostrar como OPEN un episodio que ya no
+    // tiene eventos vigentes.
+    await this.closeExpiredEpisodes();
+
     const page = Math.max(1, filter.page || 1);
     const limit = Math.min(100, Math.max(1, filter.limit || 20));
     const skip = (page - 1) * limit;
@@ -73,6 +126,9 @@ export class AnomaliesService {
    * Métricas agregadas de anomalías calculadas en base de datos sin cargar historial a memoria (A5.2).
    */
   async getSummary(): Promise<AnomaliesSummary> {
+    // El resumen agrega por estado, así que también exige cerrar antes de contar.
+    await this.closeExpiredEpisodes();
+
     const raw = await this.episodeRepo.query(`
       SELECT 
         COUNT(*) AS total_episodes,

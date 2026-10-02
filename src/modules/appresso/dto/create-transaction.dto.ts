@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsString,
   IsNotEmpty,
@@ -29,11 +30,29 @@ export class CreateAppressoTransactionDto {
   @IsNotEmpty()
   user: string;
 
+  /**
+   * Valor monetario en **unidades enteras mínimas de la moneda (centavos)**.
+   *
+   * El importe viaja como entero y solo como entero. Un importe nunca es un `float`: la
+   * aritmética binaria de coma flotante no representa de forma exacta muchos decimales y el
+   * redondeo acumularía diferencias reales de dinero.
+   *
+   * `@Type(() => Number)` normaliza un valor enviado como cadena numérica al número entero
+   * correspondiente. `@IsInt` **rechaza** cualquier decimal con HTTP 400 en lugar de truncarlo.
+   * Truncar sería peor que rechazar: convertiría un payload defectuoso en un importe menor
+   * aceptado en silencio, y además el `hash` firmado dejaría de corresponder al valor que se
+   * persiste. Ante la duda, el sistema falla de forma visible.
+   */
   @ApiProperty({
-    description: 'Valor monetario en unidades enteras mínimas de la moneda (centavos). Nunca flotante.',
+    description:
+      'Valor monetario en unidades enteras mínimas de la moneda (centavos). Nunca flotante; los decimales se rechazan.',
     example: 250000,
   })
-  @IsInt({ message: 'El valor debe ser un número entero en unidades mínimas (centavos)' })
+  @Type(() => Number)
+  @IsInt({
+    message:
+      'El valor debe ser un número entero en unidades mínimas (centavos); los decimales no se aceptan',
+  })
   @Min(1, { message: 'El valor debe ser mayor o igual a 1' })
   value: number;
 

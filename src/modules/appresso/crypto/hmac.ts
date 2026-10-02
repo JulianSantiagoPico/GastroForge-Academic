@@ -16,7 +16,15 @@ export const SIGNED_FIELDS = [
 export interface HmacPayload {
   idTxn: string;
   user: string;
-  value: number; // En centavos
+  /**
+   * Importe en **centavos**, siempre entero.
+   *
+   * La validación del DTO (`@IsInt` + `@Type`) ocurre antes que esta firma, así que el número que
+   * se canonicaliza y el que se persiste son el mismo entero. Si el DTO aceptara un decimal, la
+   * firmaHMAC sería de un valor distinto al almacenado y la verificación dejaría de proteger la
+   * integridad del importe.
+   */
+  value: number;
   currency: string;
   paymentMethod: string;
   date: string;
@@ -77,6 +85,9 @@ export function computeHmac(payload: Record<string, any>, secret: string): strin
 /**
  * Verifica la firma HMAC-SHA-256 usando comparación de tiempo constante (crypto.timingSafeEqual).
  * Protege contra timing attacks y valida longitud y formato de la firma.
+ *
+ * El importe firmado es el entero en centavos ya validado por el DTO: la firma cubre integridad y
+ * autenticidad del payload, y la idempotencia por `idTxn` es la que cubre el reintento (A1.1).
  */
 export function verifyHmac(
   payload: Record<string, any>,
