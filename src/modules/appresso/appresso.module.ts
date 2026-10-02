@@ -13,6 +13,7 @@ import { AppressoTransactionEntity } from './persistence/entities/transaction.en
 import { AppressoAnomalyEpisodeEntity } from './persistence/entities/anomaly-episode.entity';
 import { InMemoryEntityManager } from './persistence/in-memory-entity-manager';
 import { TimeBandPolicy } from './fraud-detection/time-band-policy';
+import { RedisSlidingWindowAdapter } from './redis/redis-sliding-window.adapter';
 
 const isPostgres = !!process.env.DATABASE_URL;
 
@@ -37,6 +38,7 @@ const isPostgres = !!process.env.DATABASE_URL;
     AppressoThrottlerGuard,
     AppressoRejectOriginInterceptor,
     TimeBandPolicy,
+    RedisSlidingWindowAdapter,
     ...(isPostgres
       ? []
       : [
@@ -61,6 +63,7 @@ const isPostgres = !!process.env.DATABASE_URL;
     AnomaliesService,
     AppressoMetricsService,
     TimeBandPolicy,
+    RedisSlidingWindowAdapter,
   ],
 })
 export class AppressoModule {}

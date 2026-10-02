@@ -14,6 +14,11 @@ export const METRIC = {
   REJECTED_BY_ENDPOINT: 'appresso.rejected.endpoint',
   DB_QUERIES: 'appresso.db.queries',
   DB_ERRORS: 'appresso.db.errors',
+  REDIS_DEGRADED: 'appresso.redis.degraded',
+  REDIS_CIRCUIT_OPEN: 'appresso.redis.circuit_open',
+  REDIS_RECONSTRUCTIONS: 'appresso.redis.reconstructions',
+  REDIS_OPERATIONS: 'appresso.redis.operations',
+  REDIS_ERRORS: 'appresso.redis.errors',
 } as const;
 
 export interface LatencySnapshot {

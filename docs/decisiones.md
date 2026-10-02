@@ -123,3 +123,14 @@ Para llevar Appresso a un entorno de staging/producción real sobre Neon Postgre
 - **Fallo explícito en producción:** Si `NODE_ENV=production` y `DATABASE_URL` no está presente, la aplicación aborta el arranque de forma inmediata (`validateDatabaseEnvironment()`), impidiendo caídas silenciosas al modo en memoria en despliegues reales.
 - **Procedimiento de Rollback:** Reversible mediante `npm run migration:revert`, asegurando reproducibilidad y auditoría de cambios.
 
+---
+
+## 10. Redis como capa temporal de la ventana deslizante y degradación observable (W3)
+
+- **Propósito:** Disminuir consultas de conteo a Neon y compartir el estado temporal de la ventana entre múltiples réplicas del servicio sin desplazar la autoridad de persistencia fuera de PostgreSQL.
+- **Script Lua atómico y borde inclusivo:** La purga de eventos vencidos (`receivedAt < now - windowMs`), inserción del evento actual (`ZADD`), conteo de elementos vigentes (`ZCARD`) y renovación de TTL se ejecutan de manera indivisible en Redis. Se garantiza el borde inclusivo mediante el operador exclusivo `'(' .. minTime` en `ZREMRANGEBYSCORE`, preservando los eventos que coinciden exactamente con la frontera inferior de la ventana.
+- **Circuit Breaker observable:** `RedisSlidingWindowAdapter` implementa una máquina de estados `CLOSED`, `OPEN` y `HALF_OPEN`. Ante caídas continuadas de Redis (superando el umbral de fallos), el circuito se abre y la aplicación conmuta inmediatamente a modo degradado (consulta acotada en PostgreSQL o detector local) sin bloquear la ingesta ni acumular timeouts en peticiones vivas.
+- **Reconstrucción acotada:** Al pasar a estado `HALF_OPEN`, la recuperación no consulta el historial completo; únicamente sincroniza los eventos activos (`receivedAt >= now - windowMs`) desde PostgreSQL hacia Redis.
+- **Idempotencia estricta en PostgreSQL:** PostgreSQL es la única fuente de verdad para la detección de duplicados. Una transacción repetida devuelve el estado previamente registrado y jamás altera el Sorted Set en Redis ni incrementa los conteos de la ventana.
+
+

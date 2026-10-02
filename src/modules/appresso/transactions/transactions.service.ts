@@ -4,7 +4,7 @@ import {
   Logger,
   Optional,
 } from '@nestjs/common';
-import { EntityManager } from 'typeorm';
+import { EntityManager, MoreThanOrEqual } from 'typeorm';
 import { CreateAppressoTransactionDto } from '../dto/create-transaction.dto';
 import { verifyHmac } from '../crypto/hmac';
 import { SlidingWindowDetector } from '../fraud-detection/sliding-window';
@@ -26,6 +26,7 @@ import {
 } from '../appresso.constants';
 import { AppressoMetricsService, METRIC } from '../metrics/appresso-metrics.service';
 import { TimeBandPolicy } from '../fraud-detection/time-band-policy';
+import { RedisSlidingWindowAdapter } from '../redis/redis-sliding-window.adapter';
 
 export interface ProcessTransactionResponse {
   status: 'ACCEPTED';
@@ -40,6 +41,7 @@ export interface ProcessTransactionResponse {
     threshold: number;
     timeBand?: string;
     windowMs?: number;
+    source?: 'redis' | 'postgres' | 'memory';
   };
 }
 
@@ -85,6 +87,7 @@ export class TransactionsService {
     private readonly entityManager: EntityManager,
     private readonly metrics: AppressoMetricsService,
     @Optional() timeBandPolicy?: TimeBandPolicy,
+    @Optional() private readonly redisAdapter?: RedisSlidingWindowAdapter,
   ) {
     this.timeBandPolicy =
       timeBandPolicy ?? new TimeBandPolicy({ windowMs: this.windowMs });
@@ -181,24 +184,95 @@ export class TransactionsService {
       const bandEval = this.timeBandPolicy.evaluate(receivedAt);
       const effectiveThreshold = bandEval.threshold;
 
-      // 2d. Evaluación pura de la ventana deslizante con el umbral dinámico de la franja
-      const evaluation = this.detector.processEvent(
-        {
-          idTxn: dto.idTxn,
-          userId: dto.user,
-          receivedAt,
-          value: dto.value,
-          currency: dto.currency,
-          paymentMethod: dto.paymentMethod,
-          date: dto.date,
-        },
-        effectiveThreshold,
-      );
+      // 2d. Evaluación de ventana deslizante (W3: Redis compartido, fallback PostgreSQL acotado o en memoria)
+      let windowCount = 1;
+      let isAnomaly = false;
+      let windowTxnIds: string[] = [dto.idTxn];
+      let evaluationSource: 'redis' | 'postgres' | 'memory' = 'memory';
+
+      // 2d.1 Intento prioritario con Redis si el adaptador está disponible
+      let redisResult = null;
+      if (this.redisAdapter?.isAvailable()) {
+        if (
+          this.redisAdapter.getCircuitState() === 'HALF_OPEN' &&
+          this.usesPostgres
+        ) {
+          const activeTxns = await txnRepo.find({
+            where: {
+              userId: dto.user,
+              receivedAt: MoreThanOrEqual(receivedAt - this.windowMs),
+            },
+            order: { receivedAt: 'ASC' },
+          });
+          await this.redisAdapter.reconstructActiveWindow(
+            dto.user,
+            activeTxns.map((t) => ({
+              idTxn: t.idTxn,
+              receivedAt: Number(t.receivedAt),
+            })),
+            this.windowMs,
+          );
+        }
+
+        redisResult = await this.redisAdapter.recordAndCount(
+          dto.user,
+          { idTxn: dto.idTxn, receivedAt },
+          this.windowMs,
+        );
+      }
+
+      if (redisResult) {
+        evaluationSource = 'redis';
+        windowCount = redisResult.count;
+        isAnomaly = windowCount >= effectiveThreshold;
+
+        if (isAnomaly && this.usesPostgres) {
+          const activeTxns = await txnRepo.find({
+            where: {
+              userId: dto.user,
+              receivedAt: MoreThanOrEqual(receivedAt - this.windowMs),
+            },
+            select: ['idTxn'],
+          });
+          windowTxnIds = [...activeTxns.map((t) => t.idTxn), dto.idTxn];
+        }
+      } else if (this.usesPostgres) {
+        // 2d.2 Fallback a PostgreSQL: consulta acotada a la ventana activa (receivedAt >= now - windowMs)
+        evaluationSource = 'postgres';
+        const activeTxns = await txnRepo.find({
+          where: {
+            userId: dto.user,
+            receivedAt: MoreThanOrEqual(receivedAt - this.windowMs),
+          },
+          order: { receivedAt: 'ASC' },
+        });
+        windowTxnIds = [...activeTxns.map((t) => t.idTxn), dto.idTxn];
+        windowCount = windowTxnIds.length;
+        isAnomaly = windowCount >= effectiveThreshold;
+      } else {
+        // 2d.3 Fallback a detector en memoria (modo local / tests sin DB)
+        evaluationSource = 'memory';
+        const evaluation = this.detector.processEvent(
+          {
+            idTxn: dto.idTxn,
+            userId: dto.user,
+            receivedAt,
+            value: dto.value,
+            currency: dto.currency,
+            paymentMethod: dto.paymentMethod,
+            date: dto.date,
+          },
+          effectiveThreshold,
+        );
+        windowCount = evaluation.count;
+        isAnomaly = evaluation.isAnomaly;
+        windowTxnIds = evaluation.windowEvents.map((e) => e.idTxn);
+      }
 
       let episodeId: string | undefined;
 
       // 2e. Gestión del ciclo de vida del episodio si hay anomalía
-      if (evaluation.isAnomaly) {
+      if (isAnomaly) {
         // Cierre perezoso: un episodio OPEN que ya no tiene eventos vigentes debe cerrarse ANTES
         // de decidir si este cruce actualiza el episodio anterior o abre uno nuevo (A1.2a). Sin
         // esta llamada, el índice de episodios abiertos nunca se vacía y todas las anomalías
@@ -209,14 +283,15 @@ export class TransactionsService {
           timeBand: bandEval.band,
           threshold: effectiveThreshold,
           windowMs: this.windowMs,
+          source: evaluationSource,
         });
 
         const episode = this.episodeManager.recordAnomaly({
           userId: dto.user,
-          rule: evaluation.rule,
+          rule: APPRESSO_RULE_NAME,
           txnId: dto.idTxn,
           timestamp: receivedAt,
-          windowTxnIds: evaluation.windowEvents.map((e) => e.idTxn),
+          windowTxnIds,
           notes: episodeNotes,
         });
         episodeId = episode.id;
@@ -225,7 +300,7 @@ export class TransactionsService {
         let episodeEntity = await episodeRepo.findOne({
           where: {
             userId: dto.user,
-            rule: evaluation.rule,
+            rule: APPRESSO_RULE_NAME,
             status: EpisodeStatus.OPEN,
           },
         });
@@ -291,13 +366,14 @@ export class TransactionsService {
         receivedAt,
         isDuplicate: false,
         anomaly: {
-          detected: evaluation.isAnomaly,
-          rule: evaluation.isAnomaly ? evaluation.rule : undefined,
+          detected: isAnomaly,
+          rule: isAnomaly ? APPRESSO_RULE_NAME : undefined,
           episodeId,
-          windowCount: evaluation.count,
+          windowCount,
           threshold: effectiveThreshold,
           timeBand: bandEval.band,
           windowMs: this.windowMs,
+          source: evaluationSource,
         },
       };
     });

@@ -25,6 +25,14 @@ describe('TransactionsService (A3.1 - A3.5)', () => {
       findOne: jest.fn().mockImplementation(async ({ where }: any) => {
         return storedTransactions.get(where.idTxn) || null;
       }),
+      find: jest.fn().mockImplementation(async ({ where }: any = {}) => {
+        const all = Array.from(storedTransactions.values());
+        if (!where) return all;
+        return all.filter((t: any) => {
+          if (where.userId && t.userId !== where.userId) return false;
+          return true;
+        });
+      }),
       save: jest.fn().mockImplementation(async (entity: any) => {
         storedTransactions.set(entity.idTxn, { ...entity, id: entity.id || 'uuid-txn' });
         return storedTransactions.get(entity.idTxn);
@@ -308,6 +316,120 @@ describe('TransactionsService (A3.1 - A3.5)', () => {
       expect(retry.isDuplicate).toBe(true);
       expect(retry.anomaly.windowCount).toBe(0);
       expect(retry.receivedAt).toBe(initial.receivedAt);
+    });
+  });
+
+  describe('Capa temporal de ventana en Redis y degradación (W3)', () => {
+    let mockRedisAdapter: any;
+
+    beforeEach(() => {
+      mockRedisAdapter = {
+        isAvailable: jest.fn().mockReturnValue(true),
+        getCircuitState: jest.fn().mockReturnValue('CLOSED'),
+        recordAndCount: jest.fn(),
+        reconstructActiveWindow: jest.fn().mockResolvedValue(true),
+      };
+    });
+
+    it('utiliza el conteo atómico de Redis cuando está disponible y marca source: redis', async () => {
+      mockRedisAdapter.recordAndCount.mockResolvedValue({
+        count: 1,
+        source: 'redis',
+        isDegraded: false,
+      });
+
+      const redisService = new TransactionsService(
+        mockEntityManager as any,
+        metrics,
+        undefined,
+        mockRedisAdapter,
+      );
+
+      const dto = createValidDto({ idTxn: 'redis-1' });
+      const res = await redisService.processTransaction(dto);
+
+      expect(res.status).toBe('ACCEPTED');
+      expect(res.anomaly.source).toBe('redis');
+      expect(res.anomaly.windowCount).toBe(1);
+      expect(mockRedisAdapter.recordAndCount).toHaveBeenCalledTimes(1);
+    });
+
+    it('degrada elegantemente a evaluación local si Redis retorna null', async () => {
+      mockRedisAdapter.recordAndCount.mockResolvedValue(null);
+
+      const redisService = new TransactionsService(
+        mockEntityManager as any,
+        metrics,
+        undefined,
+        mockRedisAdapter,
+      );
+
+      const dto = createValidDto({ idTxn: 'redis-deg-1' });
+      const res = await redisService.processTransaction(dto);
+
+      expect(res.status).toBe('ACCEPTED');
+      expect(res.anomaly.source).toBe('memory');
+      expect(res.anomaly.windowCount).toBe(1);
+      expect(res.anomaly.detected).toBe(false);
+    });
+
+    it('no invoca a Redis para transacciones duplicadas (autoridad de idempotencia en DB)', async () => {
+      mockRedisAdapter.recordAndCount.mockResolvedValue({
+        count: 1,
+        source: 'redis',
+        isDegraded: false,
+      });
+
+      const redisService = new TransactionsService(
+        mockEntityManager as any,
+        metrics,
+        undefined,
+        mockRedisAdapter,
+      );
+
+      const dto = createValidDto({ idTxn: 'redis-dup-1' });
+      const initial = await redisService.processTransaction(dto);
+      expect(initial.isDuplicate).toBe(false);
+      expect(mockRedisAdapter.recordAndCount).toHaveBeenCalledTimes(1);
+
+      // Duplicado
+      const duplicate = await redisService.processTransaction(dto);
+      expect(duplicate.isDuplicate).toBe(true);
+      expect(mockRedisAdapter.recordAndCount).toHaveBeenCalledTimes(1); // No vuelve a invocar Redis
+    });
+
+    it('reconstruye la ventana activa cuando el circuit breaker de Redis está en HALF_OPEN con Postgres', async () => {
+      process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/testdb';
+
+      mockRedisAdapter.getCircuitState.mockReturnValue('HALF_OPEN');
+      mockRedisAdapter.recordAndCount.mockResolvedValue({
+        count: 2,
+        source: 'redis',
+        isDegraded: false,
+      });
+
+      const postgresRedisService = new TransactionsService(
+        mockEntityManager as any,
+        metrics,
+        undefined,
+        mockRedisAdapter,
+      );
+
+      const user = 'half-open-user';
+      // Pre-cargar una transacción activa en DB
+      await mockTxnRepo.save({
+        idTxn: 'prev-active',
+        userId: user,
+        receivedAt: Date.now() - 1000,
+      });
+
+      const dto = createValidDto({ idTxn: 'rebuild-txn', user });
+      await postgresRedisService.processTransaction(dto);
+
+      expect(mockRedisAdapter.reconstructActiveWindow).toHaveBeenCalledTimes(1);
+      expect(mockRedisAdapter.recordAndCount).toHaveBeenCalledTimes(1);
+
+      delete process.env.DATABASE_URL;
     });
   });
 });

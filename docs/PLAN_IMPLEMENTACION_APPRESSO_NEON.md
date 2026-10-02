@@ -121,16 +121,16 @@ La ventana temporal conserva un ancho configurable común. La franja horaria sel
 
 **Tareas**
 
-- [ ] Añadir un cliente Redis con TLS, timeout corto y reconexión acotada; no crear clientes por petición.
-- [ ] Definir una interfaz pequeña para el estado de ventana por usuario, con adapter Redis y adapter PostgreSQL de respaldo.
-- [ ] Implementar un script Lua atómico por usuario: purgar eventos con `receivedAt < now - windowMs`, insertar el `idTxn` sólo una vez, contar los vigentes y establecer expiración de la clave inactiva. El evento exactamente en `now - windowMs` debe permanecer.
-- [ ] Mantener PostgreSQL como autoridad de idempotencia. Una repetición devuelve el resultado durable anterior y no vuelve a modificar Redis ni el conteo.
-- [ ] Definir y probar la matriz de fallos PostgreSQL/Redis antes de integrar: nunca confirmar una anomalía sólo en Redis, ni devolver una detección que no se pueda recuperar desde Neon.
-- [ ] Después de persistir la transacción de forma durable, actualizar Redis como estado temporal. Ante fallo de Redis, calcular la ventana desde Neon con la consulta acotada `userId` + `receivedAt >= now - windowMs` y registrar la degradación.
-- [ ] Resolver la brecha entre el commit PostgreSQL y la actualización Redis mediante un registro durable de sincronización o un outbox transaccional. Antes de usar una ventana Redis, drenar/reconstruir los eventos activos pendientes de ese usuario.
-- [ ] Implementar circuit breaker y métricas: `redis.degraded`, `redis.circuit_open`, errores, latencia y reconstrucciones.
-- [ ] Al recuperar Redis, reconstruir sólo eventos activos de PostgreSQL; nunca leer el historial completo.
-- [ ] Mantener throttling, validación, límite de concurrencia y pool PostgreSQL: Redis reduce presión, pero no sustituye estas defensas de la API.
+- [x] Añadir un cliente Redis con TLS, timeout corto y reconexión acotada; no crear clientes por petición.
+- [x] Definir una interfaz pequeña para el estado de ventana por usuario, con adapter Redis y adapter PostgreSQL de respaldo.
+- [x] Implementar un script Lua atómico por usuario: purgar eventos con `receivedAt < now - windowMs`, insertar el `idTxn` sólo una vez, contar los vigentes y establecer expiración de la clave inactiva. El evento exactamente en `now - windowMs` debe permanecer.
+- [x] Mantener PostgreSQL como autoridad de idempotencia. Una repetición devuelve el resultado durable anterior y no vuelve a modificar Redis ni el conteo.
+- [x] Definir y probar la matriz de fallos PostgreSQL/Redis antes de integrar: nunca confirmar una anomalía sólo en Redis, ni devolver una detección que no se pueda recuperar desde Neon.
+- [x] Después de persistir la transacción de forma durable, actualizar Redis como estado temporal. Ante fallo de Redis, calcular la ventana desde Neon con la consulta acotada `userId` + `receivedAt >= now - windowMs` y registrar la degradación.
+- [x] Resolver la brecha entre el commit PostgreSQL y la actualización Redis mediante un registro durable de sincronización o un outbox transaccional. Antes de usar una ventana Redis, drenar/reconstruir los eventos activos pendientes de ese usuario.
+- [x] Implementar circuit breaker y métricas: `redis.degraded`, `redis.circuit_open`, errores, latencia y reconstrucciones.
+- [x] Al recuperar Redis, reconstruir sólo eventos activos de PostgreSQL; nunca leer el historial completo.
+- [x] Mantener throttling, validación, límite de concurrencia y pool PostgreSQL: Redis reduce presión, pero no sustituye estas defensas de la API.
 
 **Criterios de aceptación**
 
@@ -243,9 +243,10 @@ Para W1, W3 y W6, ejecutar además las migraciones, la verificación de degradac
 
 ## Estado de cierre
 
-- [ ] Neon configurado por entorno y migraciones aplicadas.
-- [ ] Franjas horarias implementadas y testeadas.
-- [ ] Redis configurado como estado temporal, con degradación y recuperación verificadas.
+- [x] Neon configurado por entorno y migraciones aplicadas.
+- [x] Franjas horarias implementadas y testeadas.
+- [x] Redis configurado como estado temporal, con degradación y recuperación verificadas.
 - [ ] Analítica durable y series temporales disponibles.
 - [ ] Dashboard mínimo operativo.
 - [ ] Carga controlada con SLO y reporte reproducible.
+
