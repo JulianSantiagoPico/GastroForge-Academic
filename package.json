@@ -21,7 +21,10 @@
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
-    "migration:show": "typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts"
+    "migration:show": "typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts",
+    "dashboard:dev": "npm run dev --prefix frontend",
+    "dashboard:build": "npm run build --prefix frontend",
+    "dashboard:test": "npm run test --prefix frontend"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

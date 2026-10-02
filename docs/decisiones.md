@@ -142,5 +142,16 @@ Para llevar Appresso a un entorno de staging/producción real sobre Neon Postgre
 - **Indexación complementaria en Neon:** La migración `1727800000001-AddAnalyticsIndexes.ts` añade índices en `appresso_transactions(anomalyEpisodeId)`, `appresso_anomaly_episodes(openedAt)` y `appresso_anomaly_episodes(status)` para asegurar tiempos de respuesta submilisegundos en rangos de fechas y trazabilidad cronológica de episodios.
 - **Derivación de recurrencia sin PII superflua:** La tasa de usuarios recurrentes y afectados se deriva directamente agrupando por `userId`, evitando crear tablas ornamentales de perfiles o persistir direcciones IP sin justificación de retención ni auditoría de privacidad.
 
+---
+
+## 12. Dashboard Mínimo con SPA Desacoplada (W5)
+
+- **Elección arquitectónica:** SPA desacoplada en `frontend/` desarrollada con Vite + React 18 + TypeScript. Permite tipado cliente estricto, pruebas unitarias aisladas de adaptadores y componentes reactivos sin acoplar el build al proceso backend de NestJS.
+- **Sin duplicación de lógica ni exposición de secretos:** El dashboard actúa como consumidor puro de los contratos analíticos expuestos en W4 (`/overview`, `/timeseries`, `/anomalies/:id/timeline`) y de la colección de anomalías (`/anomalies`). No contiene reglas de ventana deslizante, cálculos de umbrales ni credenciales secretas (HMAC o Neon).
+- **Consumo desacoplado mediante variables públicas:** La URL de la API se parametriza vía `VITE_APPRESSO_API_URL` con dev proxy transparente en desarrollo (`/api` -> `http://localhost:3000`).
+- **Diseño defensivo de estados de interfaz:** El frontend implementa componentes explícitos para estados de carga (skeletons), error con reintento activo y estados vacíos. Nunca infiere resultados ni maquilla métricas cuando la API devuelve un código de error o no responde.
+- **Trazabilidad de anomalías:** Cada episodio visualizado en la tabla interactiva permite abrir una vista de detalle cronológica (`TimelineDrawer`), trazando desde la primera transacción sospechosa de la ventana hasta el cierre formal del episodio.
+
+
 
 

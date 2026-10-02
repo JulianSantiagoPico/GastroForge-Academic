@@ -184,12 +184,12 @@ El repositorio no contiene frontend. Antes de escribir UI, elegir el stack compa
 
 **Tareas**
 
-- [ ] Crear el frontend elegido y configurar `APPRESSO_API_BASE_URL` como variable de entorno pública sin secretos.
-- [ ] Mostrar tarjetas para períodos, anomalías por estado, porcentaje sospechoso, usuarios afectados y valor sospechoso.
-- [ ] Añadir gráficas de evolución temporal, distribución por hora, métodos de pago y anomalías por regla/nivel.
-- [ ] Añadir listado filtrable y paginado de episodios, más la línea de tiempo de un episodio.
-- [ ] Estados de carga, vacío y error; nunca inferir resultados cuando la API falla.
-- [ ] Pruebas de los adaptadores HTTP y de los estados críticos de pantalla.
+- [x] Crear el frontend elegido y configurar `APPRESSO_API_BASE_URL` como variable de entorno pública sin secretos.
+- [x] Mostrar tarjetas para períodos, anomalías por estado, porcentaje sospechoso, usuarios afectados y valor sospechoso.
+- [x] Añadir gráficas de evolución temporal, distribución por hora, métodos de pago y anomalías por regla/nivel.
+- [x] Añadir listado filtrable y paginado de episodios, más la línea de tiempo de un episodio.
+- [x] Estados de carga, vacío y error; nunca inferir resultados cuando la API falla.
+- [x] Pruebas de los adaptadores HTTP y de los estados críticos de pantalla.
 
 **Criterios de aceptación**
 
@@ -247,6 +247,6 @@ Para W1, W3 y W6, ejecutar además las migraciones, la verificación de degradac
 - [x] Franjas horarias implementadas y testeadas.
 - [x] Redis configurado como estado temporal, con degradación y recuperación verificadas.
 - [x] Analítica durable y series temporales disponibles.
-- [ ] Dashboard mínimo operativo.
+- [x] Dashboard mínimo operativo.
 - [ ] Carga controlada con SLO y reporte reproducible.
 
