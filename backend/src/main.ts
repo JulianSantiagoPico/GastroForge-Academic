@@ -16,12 +16,16 @@ async function bootstrap() {
 
   // Habilitar CORS para permitir consumo desde frontends (ej. Vercel) y herramientas externas
   const allowedOrigins = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+    ? process.env.CORS_ORIGIN.split(',').flatMap((o) => {
+        const clean = o.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
+        return clean ? [clean, `${clean}/`] : [];
+      })
     : '*';
 
   app.enableCors({
     origin: allowedOrigins,
     methods: 'GET,HEAD,POST,OPTIONS',
+    allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
   });
 
   // Middleware para dar soporte transparente tanto a rutas con /api/v1 como a rutas directas
