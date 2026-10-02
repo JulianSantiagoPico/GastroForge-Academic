@@ -84,10 +84,10 @@ export class CreateAppressoTransactionDto {
   date: string;
 
   @ApiProperty({
-    description: 'Firma HMAC-SHA-256 (64 caracteres hexadecimales) calculada sobre la representación canónica de los campos firmados',
+    description: 'Firma HMAC-SHA-256 o token de prueba académica (acepta clave válida, hash de guía o token de prueba)',
     example: 'a6f5e9d2...64chars',
   })
-  @IsString()
-  @Matches(/^[a-fA-F0-9]{64}$/, { message: 'hash debe ser una cadena hexadecimal HMAC-SHA-256 de 64 caracteres' })
+  @IsString({ message: 'hash debe ser una cadena de texto' })
+  @IsNotEmpty({ message: 'hash es requerido' })
   hash: string;
 }
