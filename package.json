@@ -16,7 +16,12 @@
     "test:verify": "ts-node scripts/verify-phase1.ts",
     "test:structures": "ts-node scripts/verify-structures.ts",
     "test:bot": "ts-node scripts/simulate-bot-load.ts",
-    "orders:view": "ts-node scripts/view-orders.ts"
+    "orders:view": "ts-node scripts/view-orders.ts",
+    "typeorm": "typeorm-ts-node-commonjs",
+    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
+    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
+    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
+    "migration:show": "typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

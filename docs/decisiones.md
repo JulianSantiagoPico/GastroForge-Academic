@@ -110,3 +110,16 @@ Esta sección registra de forma explícita una **desviación deliberada** de la 
 
 - **Trazabilidad:** la ambigüedad se cerró durante la Ola 1; el detalle de concurrencia y de cierre de episodios quedó registrado en `odd/tasks/appresso-ola1-corrections.md`.
 
+---
+
+## 9. Appresso en Neon: Migraciones Versionadas y Desactivación de `synchronize` (W1)
+
+Para llevar Appresso a un entorno de staging/producción real sobre Neon PostgreSQL, se implementa una estrategia estricta de gestión de esquemas:
+
+- **Desactivación absoluta de `synchronize`:** En producción y entornos persistentes, `synchronize: false` es mandatorio. Toda alteración estructural de tablas o índices (`appresso_transactions`, `appresso_anomaly_episodes`) se ejecuta a través de migraciones versionadas en `src/migrations/`.
+- **Doble cadena de conexión (Pooled vs Directa):**
+  - `DATABASE_URL` (Pooled con TLS): Utilizada por el proceso web de la API para atender tráfico con alta concurrencia mediante el PgBouncer integrado de Neon.
+  - `DATABASE_URL_DIRECT` (Directa con TLS): Opcional, reservada para el CLI de migraciones (`typeorm migration:run`), garantizando compatibilidad ante transacciones DDL que no admitan poolers transaccionales.
+- **Fallo explícito en producción:** Si `NODE_ENV=production` y `DATABASE_URL` no está presente, la aplicación aborta el arranque de forma inmediata (`validateDatabaseEnvironment()`), impidiendo caídas silenciosas al modo en memoria en despliegues reales.
+- **Procedimiento de Rollback:** Reversible mediante `npm run migration:revert`, asegurando reproducibilidad y auditoría de cambios.
+

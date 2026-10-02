@@ -9,6 +9,14 @@ import { HealthController } from './modules/health/health.controller';
 import { AppressoTransactionEntity } from './modules/appresso/persistence/entities/transaction.entity';
 import { AppressoAnomalyEpisodeEntity } from './modules/appresso/persistence/entities/anomaly-episode.entity';
 
+import {
+  dataSourceOptions,
+  validateDatabaseEnvironment,
+} from './database/data-source';
+
+// In production, DATABASE_URL is mandatory. Prevent silent fallback to in-memory mode.
+validateDatabaseEnvironment();
+
 const isPostgresEnabled = !!process.env.DATABASE_URL;
 
 @Module({
@@ -23,18 +31,10 @@ const isPostgresEnabled = !!process.env.DATABASE_URL;
       ? [
           TypeOrmModule.forRootAsync({
             useFactory: () => ({
-              type: 'postgres' as const,
+              ...dataSourceOptions,
               url: process.env.DATABASE_URL,
-              entities: [
-                AppressoTransactionEntity,
-                AppressoAnomalyEpisodeEntity,
-              ],
-              synchronize: process.env.NODE_ENV !== 'production',
-              ssl:
-                process.env.DATABASE_URL?.includes('sslmode=require') ||
-                process.env.DB_SSL === 'true'
-                  ? { rejectUnauthorized: false }
-                  : false,
+              synchronize: false, // Inequívocamente desactivado: el esquema se gestiona por migraciones
+              migrationsRun: process.env.TYPEORM_MIGRATIONS_RUN === 'true',
             }),
           }),
         ]

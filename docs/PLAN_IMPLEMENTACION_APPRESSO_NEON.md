@@ -57,12 +57,12 @@ Appresso opera en producción con Neon como fuente durable de verdad y Redis com
 
 **Tareas**
 
-- [ ] Crear una configuración TypeORM reutilizable por aplicación y CLI de migraciones.
-- [ ] Añadir scripts explícitos para generar, ejecutar y revertir migraciones; el script de producción debe ejecutar sólo migraciones pendientes.
-- [ ] Generar una migración inicial que represente exactamente las tablas actuales `appresso_transactions` y `appresso_anomaly_episodes`, sus índices y restricciones.
-- [ ] Desactivar `synchronize` en producción de forma inequívoca. No depender de sincronización automática para crear o modificar tablas de Neon.
-- [ ] Documentar variables de conexión pooled/directa, TLS y procedimiento de rollback.
-- [ ] Verificar que el arranque falla de forma visible si producción no tiene `DATABASE_URL`; no debe caer silenciosamente a memoria en producción.
+- [x] Crear una configuración TypeORM reutilizable por aplicación y CLI de migraciones.
+- [x] Añadir scripts explícitos para generar, ejecutar y revertir migraciones; el script de producción debe ejecutar sólo migraciones pendientes.
+- [x] Generar una migración inicial que represente exactamente las tablas actuales `appresso_transactions` y `appresso_anomaly_episodes`, sus índices y restricciones.
+- [x] Desactivar `synchronize` en producción de forma inequívoca. No depender de sincronización automática para crear o modificar tablas de Neon.
+- [x] Documentar variables de conexión pooled/directa, TLS y procedimiento de rollback.
+- [x] Verificar que el arranque falla de forma visible si producción no tiene `DATABASE_URL`; no debe caer silenciosamente a memoria en producción.
 
 **Criterios de aceptación**
 
