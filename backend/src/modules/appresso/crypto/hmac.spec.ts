@@ -103,5 +103,20 @@ describe('HMAC & Canonicalization (A1.1)', () => {
 
       expect(isValid).toBe(false);
     });
+
+    it('acepta payloads firmados en formato de bot académico (orden de inserción y sin currency)', () => {
+      const botSecret = 'dev-secret-super-secure-key-gastroforge-2026-xyz';
+      const botPayload = {
+        idTxn: 10077,
+        user: 'stszddg@outlook.com',
+        date: '2024-10-04T10:40:58.315Z',
+        value: 700897,
+        paymentMethod: 'Apple Pay',
+        hash: 'e08a7f4ee4b20781099125b34cee1ff2a68c27422c6f0850609b5c71e0678a50',
+      };
+
+      const isValid = verifyHmac(botPayload, botPayload.hash, botSecret);
+      expect(isValid).toBe(true);
+    });
   });
 });

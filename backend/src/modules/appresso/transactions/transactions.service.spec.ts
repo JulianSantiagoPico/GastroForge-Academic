@@ -102,6 +102,28 @@ describe('TransactionsService (A3.1 - A3.5)', () => {
     expect(metrics.snapshot().counters[METRIC.REJECTED_BY_HMAC]).toBe(1);
   });
 
+  it('procesa exitosamente un payload generado por bot sin currency y con idTxn numérico', async () => {
+    const originalSecret = process.env.APPRESSO_HMAC_SECRET;
+    process.env.APPRESSO_HMAC_SECRET = 'dev-secret-super-secure-key-gastroforge-2026-xyz';
+    try {
+      const botPayload: any = {
+        idTxn: '10077',
+        user: 'stszddg@outlook.com',
+        date: '2024-10-04T10:40:58.315Z',
+        value: 700897,
+        paymentMethod: 'Apple Pay',
+        currency: 'COP',
+        hash: 'e08a7f4ee4b20781099125b34cee1ff2a68c27422c6f0850609b5c71e0678a50',
+      };
+
+      const result = await service.processTransaction(botPayload);
+      expect(result.status).toBe('ACCEPTED');
+      expect(result.idTxn).toBe('10077');
+    } finally {
+      process.env.APPRESSO_HMAC_SECRET = originalSecret;
+    }
+  });
+
   it('procesa una transacción legítima correctamente sin anomalía si count < 3', async () => {
     const dto = createValidDto({ idTxn: 'txn-first' });
     const result = await service.processTransaction(dto);
