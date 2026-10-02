@@ -26,3 +26,7 @@ coverage/
 
 # Reportes generados por las simulaciones de carga (scripts/simulate-bot-load.ts)
 reports/
+
+# Superpowers temporary workspace
+.superpowers/
+
