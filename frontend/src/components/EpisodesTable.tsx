@@ -1,4 +1,5 @@
 import React from 'react';
+import { ChevronLeft, ChevronRight, Eye, ShieldAlert, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react';
 import { AnomalyEpisodeListItem } from '../types/api';
 
 interface EpisodesTableProps {
@@ -13,7 +14,45 @@ interface EpisodesTableProps {
   isLoading?: boolean;
 }
 
-export const EpisodesTable: React.FC<EpisodesTableProps> = ({
+const statusBadge = (status: string) => {
+  switch (status) {
+    case 'OPEN':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+          <ShieldAlert className="w-3 h-3" /> Abierto
+        </span>
+      );
+    case 'IN_REVIEW':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <Clock className="w-3 h-3" /> En Revisión
+        </span>
+      );
+    case 'RESOLVED':
+    case 'CLOSED':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <CheckCircle className="w-3 h-3" /> Resuelto
+        </span>
+      );
+    case 'REVIEWED':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20">
+          <CheckCircle className="w-3 h-3" /> Revisado
+        </span>
+      );
+    case 'DISMISSED':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
+          <XCircle className="w-3 h-3" /> Descartado
+        </span>
+      );
+    default:
+      return <span className="text-xs text-slate-400">{status}</span>;
+  }
+};
+
+export const EpisodesTable: React.FC<EpisodesTableProps> = React.memo(({
   episodes,
   total,
   currentPage,
@@ -22,98 +61,103 @@ export const EpisodesTable: React.FC<EpisodesTableProps> = ({
   onStatusChange,
   onPageChange,
   onSelectEpisode,
-  isLoading,
+  isLoading = false,
 }) => {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'OPEN':
-        return <span className="badge badge-danger">Abierto</span>;
-      case 'CLOSED':
-        return <span className="badge badge-secondary">Cerrado</span>;
-      case 'REVIEWED':
-        return <span className="badge badge-success">Revisado</span>;
-      case 'DISMISSED':
-        return <span className="badge badge-info">Descartado</span>;
-      default:
-        return <span className="badge">{status}</span>;
-    }
-  };
-
   return (
-    <div className="card table-card">
-      <div className="table-header">
+    <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl shadow-lg shadow-black/20 backdrop-blur-sm flex flex-col overflow-hidden">
+      {/* Table header & filters */}
+      <div className="p-5 border-b border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3>Listado de Episodios de Anomalía</h3>
-          <p className="table-subtitle">
+          <h3 className="text-base font-semibold text-white">Listado de Episodios de Anomalía</h3>
+          <p className="text-xs text-slate-400 mt-0.5 font-mono tabular-nums">
             Mostrando {episodes.length} de {total} episodios registrados
           </p>
         </div>
 
-        {/* Filtro por estado */}
-        <div className="filter-group">
-          <label htmlFor="status-select">Filtrar por estado:</label>
+        <div className="flex items-center gap-2">
+          <label htmlFor="status-select" className="text-xs text-slate-400">
+            Filtrar por estado:
+          </label>
           <select
             id="status-select"
-            className="select-input"
             value={selectedStatus}
             onChange={(e) => onStatusChange(e.target.value)}
+            className="bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-sky-500"
           >
             <option value="ALL">Todos los estados</option>
-            <option value="OPEN">Abiertos</option>
-            <option value="CLOSED">Cerrados</option>
-            <option value="REVIEWED">Revisados</option>
-            <option value="DISMISSED">Descartados</option>
+            <option value="OPEN">Abierto</option>
+            <option value="REVIEWED">Revisado</option>
+            <option value="CLOSED">Cerrado</option>
+            <option value="DISMISSED">Descartado</option>
           </select>
         </div>
       </div>
 
-      <div className="table-responsive">
-        <table className="episodes-table">
+      {/* Table content */}
+      <div className="overflow-x-auto relative min-h-[160px]">
+        {isLoading && (
+          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px] flex items-center justify-center z-10">
+            <span className="text-xs text-sky-400 font-mono animate-pulse">Actualizando lista...</span>
+          </div>
+        )}
+
+        <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr>
-              <th>ID Episodio</th>
-              <th>Usuario</th>
-              <th>Regla</th>
-              <th>Estado</th>
-              <th>Transacciones</th>
-              <th>Fecha Apertura (UTC)</th>
-              <th>Acciones</th>
+            <tr className="border-b border-slate-800/60 bg-slate-950/40 text-slate-400 uppercase tracking-wider font-semibold">
+              <th className="py-3 px-4">ID Episodio</th>
+              <th className="py-3 px-4">Usuario</th>
+              <th className="py-3 px-4">Regla</th>
+              <th className="py-3 px-4">Estado</th>
+              <th className="py-3 px-4 text-right">Transacciones</th>
+              <th className="py-3 px-4">Fecha Apertura (UTC)</th>
+              <th className="py-3 px-4 text-center">Acciones</th>
             </tr>
           </thead>
-          <tbody>
-            {isLoading ? (
+          <tbody className="divide-y divide-slate-800/40">
+            {episodes.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-4">
-                  Cargando episodios...
-                </td>
-              </tr>
-            ) : episodes.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center py-4 empty-hint">
-                  No hay episodios que coincidan con el filtro seleccionado.
+                <td colSpan={7} className="py-12 text-center text-slate-500">
+                  <div className="flex flex-col items-center justify-center gap-1.5">
+                    <AlertCircle className="w-5 h-5 text-slate-600" />
+                    <span>No hay episodios que coincidan con el filtro seleccionado.</span>
+                  </div>
                 </td>
               </tr>
             ) : (
               episodes.map((ep) => (
-                <tr key={ep.id} className="table-row">
-                  <td className="font-mono text-xs">{ep.id.substring(0, 8)}...</td>
-                  <td><strong>{ep.userId}</strong></td>
-                  <td><code className="rule-badge">{ep.rule}</code></td>
-                  <td>{getStatusBadge(ep.status)}</td>
-                  <td>
-                    <span className="badge badge-count">
-                      {ep.transactionCount} txns
-                    </span>
+                <tr
+                  key={ep.id}
+                  className="hover:bg-slate-800/30 transition-colors group cursor-pointer"
+                  onClick={() => onSelectEpisode(ep.id)}
+                >
+                  <td className="py-3 px-4 font-mono text-sky-400 group-hover:underline">
+                    {ep.id.substring(0, 8)}...
                   </td>
-                  <td>{new Date(Number(ep.openedAt)).toLocaleString()}</td>
-                  <td>
+                  <td className="py-3 px-4 font-mono text-slate-300">
+                    {ep.userId.substring(0, 10)}...
+                  </td>
+                  <td className="py-3 px-4 text-slate-300 font-medium">
+                    {ep.rule || 'Ventana deslizante'}
+                  </td>
+                  <td className="py-3 px-4">{statusBadge(ep.status)}</td>
+                  <td className="py-3 px-4 text-right font-mono tabular-nums text-white">
+                    {ep.transactionCount}
+                  </td>
+                  <td className="py-3 px-4 text-slate-400 font-mono tabular-nums">
+                    {new Date(ep.openedAt).toLocaleString('es-CO')}
+                  </td>
+                  <td className="py-3 px-4 text-center">
                     <button
-                      className="btn btn-sm btn-outline"
-                      onClick={() => onSelectEpisode(ep.id)}
+                      type="button"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectEpisode(ep.id);
+                      }}
                     >
-                      Ver Timeline →
+                      <Eye className="w-3.5 h-3.5" /> Ver Detalle
                     </button>
                   </td>
                 </tr>
@@ -123,28 +167,32 @@ export const EpisodesTable: React.FC<EpisodesTableProps> = ({
         </table>
       </div>
 
-      {/* Paginación */}
-      <div className="table-pagination">
-        <span>
-          Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+      {/* Pagination controls */}
+      <div className="p-4 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400 bg-slate-950/20">
+        <span className="font-mono tabular-nums">
+          Página {currentPage} de {totalPages}
         </span>
-        <div className="pagination-buttons">
+        <div className="flex items-center gap-2">
           <button
-            className="btn btn-sm"
-            disabled={currentPage <= 1 || isLoading}
+            type="button"
+            className="inline-flex items-center gap-1 px-3 py-1 rounded-md border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage <= 1 || isLoading}
           >
-            ← Anterior
+            <ChevronLeft className="w-3.5 h-3.5" /> Anterior
           </button>
           <button
-            className="btn btn-sm"
-            disabled={currentPage >= totalPages || isLoading}
+            type="button"
+            className="inline-flex items-center gap-1 px-3 py-1 rounded-md border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages || isLoading}
           >
-            Siguiente →
+            Siguiente <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
     </div>
   );
-};
+});
+
+EpisodesTable.displayName = 'EpisodesTable';
