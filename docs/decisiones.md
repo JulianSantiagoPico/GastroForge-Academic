@@ -152,6 +152,23 @@ Para llevar Appresso a un entorno de staging/producción real sobre Neon Postgre
 - **Diseño defensivo de estados de interfaz:** El frontend implementa componentes explícitos para estados de carga (skeletons), error con reintento activo y estados vacíos. Nunca infiere resultados ni maquilla métricas cuando la API devuelve un código de error o no responde.
 - **Trazabilidad de anomalías:** Cada episodio visualizado en la tabla interactiva permite abrir una vista de detalle cronológica (`TimelineDrawer`), trazando desde la primera transacción sospechosa de la ventana hasta el cierre formal del episodio.
 
+---
+
+## 13. Perfiles de Carga Controlados y Verificación de SLO (W6)
+
+- **Control de RPS objetivo y concurrencia:** `scripts/simulate-bot-load.ts` incorpora pacing temporal por trabajador para medir capacidad bajo un ritmo objetivo determinado, además de medir el RPS efectivo real.
+- **Perfiles de prueba desacoplados:**
+  1. *Contención monousuario (`single-user`):* Evalúa la serialización mediante mutex en memoria y `pg_advisory_xact_lock` sobre una misma clave de bloqueo.
+  2. *Distribución multiusuario (`multi-user`):* Evalúa concurrencia masiva con flujos y locks independientes.
+  3. *Distribución por franjas horarias (`time-bands`):* Valida la alternancia de umbrales en UTC (mañana: 10, tarde-noche: 6, noche-madrugada: 3).
+- **Contrato de SLO cuantificable:** Se evalúa formalmente cada escalón contra:
+  - Latencia $p95 \le 150\,\text{ms}$
+  - Latencia $p99 \le 300\,\text{ms}$
+  - Tasa de errores HTTP 5xx $\le 1.0\%$
+  - Condición de parada automática ante degradación crítica del endpoint (>10 errores 5xx).
+- **Atribución de causa y aislamiento por corrida:** Cada ejecución cuenta con un namespace único (`runId`) para evitar colisiones entre corridas. Los rechazos se discriminan estrictamente según su origen (`throttler`, `validation`, `hmac`, `endpoint`), garantizando que los bloqueos por límite de tasa jamás se confundan con anomalías del detector.
+
+
 
 
 

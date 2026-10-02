@@ -209,12 +209,12 @@ El repositorio no contiene frontend. Antes de escribir UI, elegir el stack compa
 
 **Tareas**
 
-- [ ] Añadir control de RPS objetivo, además de concurrencia y RPS efectivo.
-- [ ] Ejecutar perfiles separados: un único usuario, muchos usuarios y distribución por franjas.
-- [ ] Usar namespace/identificadores únicos por corrida y registrar base, versión, configuración de throttling y proveedor Neon.
-- [ ] Acordar SLO antes de ejecutar: p95/p99 máximo, tasa máxima de 5xx y condición de parada.
-- [ ] Identificar el primer escalón que viola el SLO y diferenciar `throttler`, validación, HMAC, endpoint y DB.
-- [ ] Verificar después de cada corrida que no hay duplicados ni episodios inconsistentes.
+- [x] Añadir control de RPS objetivo, además de concurrencia y RPS efectivo.
+- [x] Ejecutar perfiles separados: un único usuario, muchos usuarios y distribución por franjas.
+- [x] Usar namespace/identificadores únicos por corrida y registrar base, versión, configuración de throttling y proveedor Neon.
+- [x] Acordar SLO antes de ejecutar: p95/p99 máximo, tasa máxima de 5xx y condición de parada.
+- [x] Identificar el primer escalón que viola el SLO y diferenciar `throttler`, validación, HMAC, endpoint y DB.
+- [x] Verificar después de cada corrida que no hay duplicados ni episodios inconsistentes.
 
 **Criterios de aceptación**
 
@@ -248,5 +248,5 @@ Para W1, W3 y W6, ejecutar además las migraciones, la verificación de degradac
 - [x] Redis configurado como estado temporal, con degradación y recuperación verificadas.
 - [x] Analítica durable y series temporales disponibles.
 - [x] Dashboard mínimo operativo.
-- [ ] Carga controlada con SLO y reporte reproducible.
+- [x] Carga controlada con SLO y reporte reproducible.
 

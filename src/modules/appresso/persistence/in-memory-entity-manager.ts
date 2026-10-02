@@ -99,14 +99,17 @@ export class InMemoryEntityManager {
           return saved;
         },
         createQueryBuilder: () => {
-          const list = Array.from(this.episodes.values());
-          return {
-            andWhere: () => this,
-            orderBy: () => this,
-            skip: () => this,
-            take: () => this,
-            getManyAndCount: async () => [list, list.length],
+          const builder: any = {
+            andWhere: () => builder,
+            orderBy: () => builder,
+            skip: () => builder,
+            take: () => builder,
+            getManyAndCount: async () => {
+              const list = Array.from(this.episodes.values());
+              return [list, list.length];
+            },
           };
+          return builder;
         },
         query: (sql: string) => this.query(sql),
       };

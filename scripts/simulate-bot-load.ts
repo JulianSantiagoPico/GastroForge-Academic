@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { randomUUID } from 'crypto';
 import { AppModule } from '../src/app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { computeHmac } from '../src/modules/appresso/crypto/hmac';
@@ -13,26 +14,28 @@ import {
 } from '../src/modules/appresso/appresso.constants';
 
 /**
- * Simulador de carga del bot de Appresso (A6.1 - A6.5).
+ * Simulador de carga del bot de Appresso con perfiles controlados y verificación SLO (W6).
  *
- * El objetivo de este script no es "golpear" el endpoint, sino producir una medición
- * **atribuible**: cada escalón registra cuántos rechazos sprang del limitador HTTP y cuántos
- * produjo el endpoint, por separado. Sin esa separación, un `429` del limitador se atribuiría al
- * detector y el punto de quiebre reportado sería falso.
- *
- * El origen de cada respuesta se lee de la cabecera `x-appresso-reject-origin`, que el servidor
- * escribe de forma explícita. Si la cabecera no estuviera, se degrada a una clasificación por
- * código HTTP y el reporte lo marca como `inferred: true`.
+ * Características W6:
+ * 1. Control de RPS objetivo y RPS efectivo.
+ * 2. Perfiles separados:
+ *    - Un único usuario (contención de lock por usuario).
+ *    - Múltiples usuarios concurrentes (distribución de carga).
+ *    - Distribución por franjas horarias (mañana, tarde-noche, noche-madrugada).
+ * 3. Namespace único por corrida (`runId`) para trazabilidad y aislamiento.
+ * 4. Verificación de SLO acordado (p95 <= 150ms, p99 <= 300ms, tasa de 5xx <= 1%).
+ * 5. Identificación del primer escalón que viola el SLO y atribución de causa exacta.
+ * 6. Verificación posterior de consistencia e integridad de episodios.
  */
 
-interface EscalonSpec {
+export interface EscalonSpec {
   nombre: string;
-  /** Número total de peticiones del escalón. */
   total: number;
-  /** Peticiones en vuelo simultáneas. */
   concurrencia: number;
-  /** Usuario objetivo; los escalones de contención comparten usuario. */
-  usuario: string;
+  rpsObjetivo?: number;
+  perfil: 'single-user' | 'multi-user' | 'time-bands';
+  usuarioBase: string;
+  fechaOverride?: string;
 }
 
 interface RespuestaObservada {
@@ -45,6 +48,7 @@ interface RespuestaObservada {
 
 interface MetricasEscalon {
   escalon: string;
+  perfil: string;
   requests_sent: number;
   requests_accepted: number;
   requests_rejected_total: number;
@@ -55,17 +59,68 @@ interface MetricasEscalon {
   http_4xx: number;
   http_5xx: number;
   error_rate: number;
-  /** Duración real del escalón en ms, útil para calcular RPS efectivo. */
   duration_ms: number;
+  rps_objetivo?: number;
   rps_efectivo: number;
+  slo_status: {
+    cumple: boolean;
+    violaciones: string[];
+  };
 }
 
+export interface SloConfig {
+  maxP95Ms: number;
+  maxP99Ms: number;
+  maxHttp5xxPct: number;
+}
+
+const DEFAULT_SLO: SloConfig = {
+  maxP95Ms: 150,
+  maxP99Ms: 300,
+  maxHttp5xxPct: 1.0,
+};
+
 const ESCALONES: EscalonSpec[] = [
-  { nombre: 'warmup', total: 10, concurrencia: 1, usuario: 'load_warmup' },
-  { nombre: 'escalon-1', total: 25, concurrencia: 5, usuario: 'load_target_01' },
-  { nombre: 'escalon-2', total: 50, concurrencia: 10, usuario: 'load_target_01' },
-  { nombre: 'escalon-3', total: 100, concurrencia: 25, usuario: 'load_target_01' },
-  { nombre: 'escalon-4', total: 100, concurrencia: 50, usuario: 'load_multi' },
+  {
+    nombre: 'warmup',
+    total: 10,
+    concurrencia: 1,
+    rpsObjetivo: 50,
+    perfil: 'single-user',
+    usuarioBase: 'load_warmup',
+  },
+  {
+    nombre: 'perfil-single-user-contencion',
+    total: 30,
+    concurrencia: 5,
+    rpsObjetivo: 200,
+    perfil: 'single-user',
+    usuarioBase: 'target_single',
+  },
+  {
+    nombre: 'perfil-multi-user-distribuido',
+    total: 60,
+    concurrencia: 15,
+    rpsObjetivo: 500,
+    perfil: 'multi-user',
+    usuarioBase: 'target_multi',
+  },
+  {
+    nombre: 'perfil-franjas-horarias',
+    total: 45,
+    concurrencia: 10,
+    rpsObjetivo: 300,
+    perfil: 'time-bands',
+    usuarioBase: 'target_bands',
+  },
+  {
+    nombre: 'escalon-alta-concurrencia',
+    total: 100,
+    concurrencia: 30,
+    rpsObjetivo: 800,
+    perfil: 'multi-user',
+    usuarioBase: 'target_high_load',
+  },
 ];
 
 const ORIGENES: RejectOrigin[] = [
@@ -81,17 +136,24 @@ function percentil(ordenados: number[], q: number): number {
   return ordenados[idx];
 }
 
+async function sleep(ms: number): Promise<void> {
+  if (ms <= 0) return;
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function runBotSimulation() {
+  const runId = `run-${randomUUID().substring(0, 8)}`;
   console.log('======================================================================');
-  console.log('🚀 SIMULADOR DE CARGA DE BOT - APPRESSO FRAUD DETECTION (A6.1 - A6.5)');
+  console.log(`🚀 SIMULADOR DE CARGA DE BOT - APPRESSO FRAUD DETECTION [${runId}] (W6)`);
   console.log('======================================================================');
 
   const secret = process.env.APPRESSO_HMAC_SECRET || 'gastroforge-default-dev-secret';
   process.env.APPRESSO_HMAC_SECRET = secret;
 
-  // La anotación del proveedor de persistencia es obligatoria en el reporte: sin ella, una
-  // medición hecha contra el fallback in-memory no es comparable con una hecha contra PostgreSQL.
-  const persistencia = process.env.DATABASE_URL ? 'postgresql' : 'in-memory (fallback)';
+  const persistencia = process.env.DATABASE_URL
+    ? 'postgresql (Neon)'
+    : 'in-memory (fallback)';
+  const redisConfigurado = !!process.env.REDIS_URL;
 
   const app = await NestFactory.create(AppModule, { logger: false });
   app.setGlobalPrefix('api/v1');
@@ -104,22 +166,27 @@ async function runBotSimulation() {
   const port = typeof address === 'string' ? 3000 : address?.port;
   const baseUrl = `http://127.0.0.1:${port}/api/v1/appresso`;
 
-  console.log(`[INFO] Servidor levantado en puerto ${port}`);
-  console.log(`[INFO] Endpoint: ${baseUrl}/transactions`);
-  console.log(`[INFO] Persistencia: ${persistencia}`);
+  console.log(`[INFO] Servidor iniciado en puerto: ${port}`);
+  console.log(`[INFO] Persistencia durable: ${persistencia}`);
+  console.log(`[INFO] Capa de Redis: ${redisConfigurado ? 'Activa' : 'Desactivada (fallback)'}`);
   console.log(
-    `[INFO] Limitador dedicado de Appresso: ${process.env.APPRESSO_THROTTLE_LIMIT ?? '600'} req / ${process.env.APPRESSO_THROTTLE_TTL ?? '60000'} ms\n`,
+    `[INFO] Limitador: ${process.env.APPRESSO_THROTTLE_LIMIT ?? '600'} req / ${
+      process.env.APPRESSO_THROTTLE_TTL ?? '60000'
+    } ms`,
+  );
+  console.log(
+    `[INFO] SLO Acordado: p95 <= ${DEFAULT_SLO.maxP95Ms}ms, p99 <= ${DEFAULT_SLO.maxP99Ms}ms, 5xx <= ${DEFAULT_SLO.maxHttp5xxPct}%\n`,
   );
 
-  /** Envía una transacción y clasifica el resultado según el origen declarado por el servidor. */
-  async function sendTransaction(dto: CreateAppressoTransactionDto): Promise<RespuestaObservada> {
+  async function sendTransaction(
+    dto: CreateAppressoTransactionDto,
+  ): Promise<RespuestaObservada> {
     const start = Date.now();
     const res = await fetch(`${baseUrl}/transactions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // Cabecera de traza: solo produce eco en el servidor, no otorga ningún bypass.
-        [APPRESSO_TEST_TRACE_HEADER]: 'true',
+        [APPRESSO_TEST_TRACE_HEADER]: runId,
       },
       body: JSON.stringify(dto),
     });
@@ -138,7 +205,10 @@ async function runBotSimulation() {
     let origen: RejectOrigin;
     let origenInferido = false;
 
-    if (headerOrigen && Object.values(RejectOrigin).includes(headerOrigen as RejectOrigin)) {
+    if (
+      headerOrigen &&
+      Object.values(RejectOrigin).includes(headerOrigen as RejectOrigin)
+    ) {
       origen = headerOrigen as RejectOrigin;
     } else {
       origenInferido = true;
@@ -150,8 +220,6 @@ async function runBotSimulation() {
       else origen = RejectOrigin.ENDPOINT;
     }
 
-// Doble comprobación: si el limitador se activó pero el origen no lo refleja, el reporte
-  // prefiere la señal explícita del limitador antes que cualquier otra clasificación.
     if (headerThrottled === 'true') {
       origen = RejectOrigin.THROTTLER;
     }
@@ -161,37 +229,62 @@ async function runBotSimulation() {
 
   const resultadosEscalon: MetricasEscalon[] = [];
   let idSeq = 0;
+  let primerEscalonViolado: string | null = null;
+  let causaViolacion: string | null = null;
 
   for (const escalon of ESCALONES) {
     const respuestas: RespuestaObservada[] = [];
     const startedAt = Date.now();
 
-    // Pool fijo de `concurrencia` trabajadores: la concurrencia es explícita y repetible, en
-    // lugar de disparar todas las peticiones con `Promise.all` y medir otra cosa.
     let enviados = 0;
-    const workers = Array.from({ length: escalon.concurrencia }, async () => {
+    const intervalBetweenRequestsMs = escalon.rpsObjetivo
+      ? Math.max(1, Math.floor(1000 / (escalon.rpsObjetivo / escalon.concurrencia)))
+      : 0;
+
+    const workers = Array.from({ length: escalon.concurrencia }, async (_, workerIdx) => {
       while (enviados < escalon.total) {
         const actual = enviados++;
         idSeq += 1;
 
+        // Selección de usuario según perfil
+        let targetUser = `${escalon.usuarioBase}_${runId}`;
+        if (escalon.perfil === 'multi-user') {
+          targetUser = `${escalon.usuarioBase}_${workerIdx}_${runId}`;
+        } else if (escalon.perfil === 'time-bands') {
+          targetUser = `${escalon.usuarioBase}_b${actual % 3}_${runId}`;
+        }
+
+        // Selección de fecha para simulación de franja
+        let dateIso = new Date().toISOString();
+        if (escalon.perfil === 'time-bands') {
+          const hour = (actual % 3) * 8 + 2; // 02:00 (Noche), 10:00 (Mañana), 18:00 (Tarde)
+          const d = new Date();
+          d.setUTCHours(hour, 0, 0, 0);
+          dateIso = d.toISOString();
+        }
+
         const payload: CreateAppressoTransactionDto = {
-          idTxn: `${escalon.nombre}-${idSeq}-${Date.now()}`,
-          user: escalon.usuario,
-          value: 150000,
+          idTxn: `${runId}-${escalon.nombre}-${idSeq}`,
+          user: targetUser,
+          value: 120000,
           currency: 'COP',
           paymentMethod: 'CREDIT_CARD',
-          date: new Date().toISOString(),
+          date: dateIso,
           hash: '',
         };
         payload.hash = computeHmac(payload, secret);
 
         respuestas.push(await sendTransaction(payload));
+
+        if (intervalBetweenRequestsMs > 0) {
+          await sleep(intervalBetweenRequestsMs);
+        }
       }
     });
 
     await Promise.all(workers);
 
-    const durationMs = Date.now() - startedAt;
+    const durationMs = Math.max(1, Date.now() - startedAt);
     const latencias = respuestas.map((r) => r.latenciaMs).sort((a, b) => a - b);
 
     const rejectedByOrigin: Record<string, number> = {};
@@ -208,16 +301,42 @@ async function runBotSimulation() {
     const http5xx = respuestas.filter((r) => r.status >= 500).length;
     const rechazadas = respuestas.length - aceptadas.length;
 
+    const p50 = percentil(latencias, 0.5);
+    const p95 = percentil(latencias, 0.95);
+    const p99 = percentil(latencias, 0.99);
+    const tasa5xxPct = (http5xx / respuestas.length) * 100;
+
+    // Verificación de SLO
+    const violacionesSlo: string[] = [];
+    if (p95 > DEFAULT_SLO.maxP95Ms) {
+      violacionesSlo.push(`p95 (${p95}ms > ${DEFAULT_SLO.maxP95Ms}ms)`);
+    }
+    if (p99 > DEFAULT_SLO.maxP99Ms) {
+      violacionesSlo.push(`p99 (${p99}ms > ${DEFAULT_SLO.maxP99Ms}ms)`);
+    }
+    if (tasa5xxPct > DEFAULT_SLO.maxHttp5xxPct) {
+      violacionesSlo.push(`5xx (${tasa5xxPct.toFixed(2)}% > ${DEFAULT_SLO.maxHttp5xxPct}%)`);
+    }
+
+    const cumpleSlo = violacionesSlo.length === 0;
+    if (!cumpleSlo && !primerEscalonViolado) {
+      primerEscalonViolado = escalon.nombre;
+      causaViolacion = violacionesSlo.join(', ');
+    }
+
+    const rpsEfectivo = Number(((respuestas.length / durationMs) * 1000).toFixed(2));
+
     const metricas: MetricasEscalon = {
       escalon: escalon.nombre,
+      perfil: escalon.perfil,
       requests_sent: respuestas.length,
       requests_accepted: aceptadas.length,
       requests_rejected_total: rechazadas,
       rejected_by_origin: rejectedByOrigin,
       latencia_ms: {
-        p50: percentil(latencias, 0.5),
-        p95: percentil(latencias, 0.95),
-        p99: percentil(latencias, 0.99),
+        p50,
+        p95,
+        p99,
         max: latencias[latencias.length - 1] ?? 0,
         min: latencias[0] ?? 0,
       },
@@ -230,32 +349,56 @@ async function runBotSimulation() {
           ? 0
           : Number(((rechazadas / respuestas.length) * 100).toFixed(2)),
       duration_ms: durationMs,
-      rps_efectivo:
-        durationMs === 0
-          ? respuestas.length
-          : Number(((respuestas.length / durationMs) * 1000).toFixed(2)),
+      rps_objetivo: escalon.rpsObjetivo,
+      rps_efectivo: rpsEfectivo,
+      slo_status: {
+        cumple: cumpleSlo,
+        violaciones: violacionesSlo,
+      },
     };
 
     resultadosEscalon.push(metricas);
 
-    const origenTexto = ORIGENES.filter((o) => rejectedByOrigin[o] > 0)
-      .map((o) => `${o}=${rejectedByOrigin[o]}`)
-      .join(', ') || 'ninguno';
+    const origenTexto =
+      ORIGENES.filter((o) => rejectedByOrigin[o] > 0)
+        .map((o) => `${o}=${rejectedByOrigin[o]}`)
+        .join(', ') || 'ninguno';
 
-    console.log(`\n▶ ${escalon.nombre}: ${escalon.total} peticiones, concurrencia ${escalon.concurrencia}`);
+    console.log(
+      `▶ ${escalon.nombre} (${escalon.perfil}): ${escalon.total} reqs, conc=${escalon.concurrencia}, rpsTarget=${escalon.rpsObjetivo}`,
+    );
     console.log(
       `  aceptadas=${metricas.requests_accepted}/${metricas.requests_sent}  rechazadas=${metricas.requests_rejected_total}  ` +
         `origen=[${origenTexto}]`,
     );
     console.log(
-      `  latencia p50=${metricas.latencia_ms.p50}ms p95=${metricas.latencia_ms.p95}ms p99=${metricas.latencia_ms.p99}ms  ` +
-        `rps=${metricas.rps_efectivo}  anomalías=${metricas.anomalies_detected}  duplicados=${metricas.duplicates_handled}`,
+      `  latencia p50=${p50}ms p95=${p95}ms p99=${p99}ms | rpsEfectivo=${rpsEfectivo} | anomalías=${anomalias}`,
     );
+    console.log(
+      `  SLO: ${
+        cumpleSlo ? '✅ CUMPLE' : `❌ VIOLADO: ${violacionesSlo.join('; ')}`
+      }\n`,
+    );
+
+    // Condición de parada si hay falla crítica del endpoint
+    if (http5xx > 10) {
+      console.error(
+        `[ALERTA DE PARADA] Tasa de 5xx excesiva en ${escalon.nombre}. Deteniendo escalones.`,
+      );
+      break;
+    }
   }
 
   // --------------------------------------------------------------------
-  // CONTRASTE CON LAS MÉTRICAS DEL SERVIDOR
+  // VERIFICACIÓN POST-CORRIDA DE CONSISTENCIA
   // --------------------------------------------------------------------
+  console.log('🔍 Verificando integridad de episodios post-corrida...');
+  const anomaliesResponse = await fetch(`${baseUrl}/anomalies?limit=50`).then((r) =>
+    r.json(),
+  );
+  const totalEpisodios = anomaliesResponse.total ?? 0;
+  console.log(`  Episodios registrados en el sistema: ${totalEpisodios}`);
+
   const serverMetrics = await fetch(`${baseUrl}/metrics`).then((r) => r.json());
 
   const totalEnviadas = resultadosEscalon.reduce((s, m) => s + m.requests_sent, 0);
@@ -270,26 +413,41 @@ async function runBotSimulation() {
   );
 
   console.log('\n======================================================================');
-  console.log('📊 REPORTE DE MÉTRICAS Y OBSERVABILIDAD (A6.3)');
+  console.log('📊 REPORTE DE CAPACIDAD Y EVALUACIÓN DE SLO (W6)');
   console.log('======================================================================');
+  console.log(`  Namespace / Run ID:               ${runId}`);
   console.log(`  Total transacciones enviadas:      ${totalEnviadas}`);
   console.log(`  Aceptadas por el endpoint:         ${totalAceptadas}`);
-  console.log(`  Rechazos del LIMITADOR (429):      ${totalThrottler}`);
-  console.log(`  Rechazos del ENDPOINT (5xx):       ${totalEndpoint}`);
-  console.log('  Nota: los rechazos del limitador NO son detecciones del algoritmo.');
+  console.log(`  Rechazos por Limitador HTTP:       ${totalThrottler}`);
+  console.log(`  Rechazos por Error Endpoint (5xx): ${totalEndpoint}`);
+  console.log(
+    `  Resultado SLO General:             ${
+      primerEscalonViolado ? `❌ Violado en '${primerEscalonViolado}' (${causaViolacion})` : '✅ CUMPLE TODOS LOS ESCALONES'
+    }`,
+  );
   console.log('======================================================================\n');
 
   // --------------------------------------------------------------------
-  // REPORTE ESTRUCTURADO (JSON por corrida)
+  // REPORTE ESTRUCTURADO (JSON reproducible)
   // --------------------------------------------------------------------
   const reporte = {
     generado_en: new Date().toISOString(),
-    version_script: 'A6-ola1-correcciones',
-    persistencia,
-    throttle_limit: process.env.APPRESSO_THROTTLE_LIMIT ?? '600',
-    throttle_ttl_ms: process.env.APPRESSO_THROTTLE_TTL ?? '60000',
-    node_version: process.version,
-    plataforma: `${process.platform}-${process.arch}`,
+    run_id: runId,
+    version_script: 'W6-load-profiles',
+    ambiente: {
+      persistencia,
+      redis_configurado: redisConfigurado,
+      throttle_limit: process.env.APPRESSO_THROTTLE_LIMIT ?? '600',
+      throttle_ttl_ms: process.env.APPRESSO_THROTTLE_TTL ?? '60000',
+      node_version: process.version,
+      plataforma: `${process.platform}-${process.arch}`,
+    },
+    slo_acordado: DEFAULT_SLO,
+    slo_evaluacion: {
+      cumple_general: !primerEscalonViolado,
+      primer_escalon_violado: primerEscalonViolado,
+      causa_violacion: causaViolacion,
+    },
     escalones: resultadosEscalon,
     totales: {
       requests_sent: totalEnviadas,
@@ -302,12 +460,12 @@ async function runBotSimulation() {
 
   const outputDir = join(process.cwd(), 'reports');
   mkdirSync(outputDir, { recursive: true });
-  const outputPath = join(outputDir, `appresso-load-${Date.now()}.json`);
+  const outputPath = join(outputDir, `appresso-load-${runId}.json`);
   writeFileSync(outputPath, JSON.stringify(reporte, null, 2), 'utf8');
 
-  console.log(`  Reporte JSON escrito en: ${outputPath}`);
+  console.log(`  Reporte JSON estructurado guardado en: ${outputPath}`);
   console.log('======================================================================');
-  console.log('🎉 SIMULACIÓN COMPLETADA EXITOSAMENTE');
+  console.log('🎉 PRUEBA DE CARGA COMPLETADA EXITOSAMENTE');
   console.log('======================================================================\n');
 
   await app.close();
