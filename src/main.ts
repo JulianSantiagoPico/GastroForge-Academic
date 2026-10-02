@@ -19,6 +19,8 @@ async function bootstrap() {
       req.url = `/api/v1${req.url}`;
     } else if (req.url.startsWith('/structures') && !req.url.startsWith('/api/v1/structures')) {
       req.url = `/api/v1${req.url}`;
+    } else if (req.url.startsWith('/appresso') && !req.url.startsWith('/api/v1/appresso')) {
+      req.url = `/api/v1${req.url}`;
     } else if (req.url === '/health') {
       req.url = '/api/v1/health';
     }
@@ -51,6 +53,7 @@ async function bootstrap() {
     .addTag('Health', 'Verificación de estado y disponibilidad')
     .addTag('Academic-Analysis', 'Algoritmos y pruebas de complejidad computacional')
     .addTag('Data-Structures', 'Estructuras de datos y simulaciones académicas')
+    .addTag('Appresso - Detección de Fraude', 'Recepción de transacciones y detección de anomalías por ventana deslizante')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
