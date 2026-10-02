@@ -154,5 +154,18 @@ describe('TimeBandPolicy (W2 - Límites por franja horaria en UTC)', () => {
         });
       }).toThrow(/debe ser un entero positivo/);
     });
+
+    it('permite leer y modificar dinámicamente windowMs y umbrales en caliente', () => {
+      expect(policy.getWindowMs()).toBe(3000);
+      policy.setWindowMs(7000);
+      expect(policy.getWindowMs()).toBe(7000);
+
+      policy.setThreshold(TimeBandName.NOCHE_MADRUGADA, 2);
+      expect(policy.getThresholds()[TimeBandName.NOCHE_MADRUGADA]).toBe(2);
+
+      const evaluation = policy.evaluate(createUtcTimestamp(23, 0, 0));
+      expect(evaluation.windowMs).toBe(7000);
+      expect(evaluation.threshold).toBe(2);
+    });
   });
 });

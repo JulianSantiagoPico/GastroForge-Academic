@@ -39,6 +39,18 @@ describe('AppressoTransactionsController', () => {
                 },
               };
             }),
+            getConfig: jest.fn().mockReturnValue({
+              windowMs: 3000,
+              windowSeconds: 3,
+              activeThreshold: 3,
+              currentBand: 'NOCHE_MADRUGADA',
+            }),
+            updateConfig: jest.fn().mockImplementation((dto) => ({
+              windowMs: dto.windowSeconds ? dto.windowSeconds * 1000 : 3000,
+              windowSeconds: dto.windowSeconds ?? 3,
+              activeThreshold: 3,
+              currentBand: 'NOCHE_MADRUGADA',
+            })),
           },
         },
       ],
@@ -98,5 +110,18 @@ describe('AppressoTransactionsController', () => {
     await controller.createTransaction(buildDto('txn-ctrl-01'), mockResponse as unknown as Response);
 
     expect(mockResponse.status).toHaveBeenCalledWith(200);
+  });
+
+  it('permite consultar la configuración activa de la ventana con getConfig()', () => {
+    const config = controller.getConfig();
+    expect(config.windowSeconds).toBe(3);
+    expect(config.activeThreshold).toBe(3);
+    expect(service.getConfig).toHaveBeenCalled();
+  });
+
+  it('permite actualizar la ventana temporal dinámicamente con updateConfig()', () => {
+    const updated = controller.updateConfig({ windowSeconds: 5 });
+    expect(updated.windowSeconds).toBe(5);
+    expect(service.updateConfig).toHaveBeenCalledWith({ windowSeconds: 5 });
   });
 });

@@ -6,8 +6,21 @@
  * un solo lugar evita que la medición de carga y la regla de negocio diverjan.
  */
 
-/** Ancho de la ventana deslizante en milisegundos. */
+/** Ancho de la ventana deslizante por defecto en milisegundos. */
 export const APPRESSO_WINDOW_MS = 3000;
+
+/** Ventana efectiva de detección, configurable por entorno (APPRESSO_WINDOW_SECONDS o APPRESSO_WINDOW_MS). */
+export function resolveAppressoWindowMs(): number {
+  if (process.env.APPRESSO_WINDOW_SECONDS) {
+    const sec = Number.parseInt(process.env.APPRESSO_WINDOW_SECONDS, 10);
+    if (Number.isFinite(sec) && sec > 0) return sec * 1000;
+  }
+  if (process.env.APPRESSO_WINDOW_MS) {
+    const ms = Number.parseInt(process.env.APPRESSO_WINDOW_MS, 10);
+    if (Number.isFinite(ms) && ms > 0) return ms;
+  }
+  return APPRESSO_WINDOW_MS;
+}
 
 /** Umbral de transacciones dentro de la ventana que dispara la regla de fraude. */
 export const APPRESSO_THRESHOLD = 3;

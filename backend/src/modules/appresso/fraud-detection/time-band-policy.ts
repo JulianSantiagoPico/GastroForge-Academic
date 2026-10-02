@@ -1,5 +1,5 @@
 import { Injectable, Optional } from '@nestjs/common';
-import { APPRESSO_WINDOW_MS } from '../appresso.constants';
+import { APPRESSO_WINDOW_MS, resolveAppressoWindowMs } from '../appresso.constants';
 
 export enum TimeBandName {
   MANANA = 'MANANA',
@@ -32,8 +32,8 @@ export interface TimeBandPolicyConfig {
  */
 @Injectable()
 export class TimeBandPolicy {
-  private readonly windowMs: number;
-  private readonly thresholds: Record<TimeBandName, number>;
+  private windowMs: number;
+  private thresholds: Record<TimeBandName, number>;
 
   // Puntos de corte en milisegundos desde las 00:00:00.000 UTC
   // 05:00:00.000 = 5 * 3600 * 1000 = 18_000_000
@@ -44,7 +44,7 @@ export class TimeBandPolicy {
   private static readonly TWENTY_HOURS_MS = 72_000_000;
 
   constructor(@Optional() config?: TimeBandPolicyConfig) {
-    this.windowMs = config?.windowMs ?? APPRESSO_WINDOW_MS;
+    this.windowMs = config?.windowMs ?? resolveAppressoWindowMs();
 
     const morning =
       config?.thresholds?.[TimeBandName.MANANA] ??
@@ -115,5 +115,29 @@ export class TimeBandPolicy {
       windowMs: this.windowMs,
       receivedAt,
     };
+  }
+
+  /** Retorna el ancho actual de la ventana en milisegundos. */
+  getWindowMs(): number {
+    return this.windowMs;
+  }
+
+  /** Modifica dinámicamente el ancho de la ventana en milisegundos. */
+  setWindowMs(ms: number): void {
+    if (!Number.isInteger(ms) || ms <= 0) {
+      throw new Error(`El ancho de ventana debe ser un entero positivo en milisegundos (recibido: ${ms})`);
+    }
+    this.windowMs = ms;
+  }
+
+  /** Retorna una copia de los umbrales configurados por franja horaria. */
+  getThresholds(): Record<TimeBandName, number> {
+    return { ...this.thresholds };
+  }
+
+  /** Modifica el umbral para una franja específica. */
+  setThreshold(band: TimeBandName, threshold: number): void {
+    this.validateThreshold(band, threshold);
+    this.thresholds[band] = threshold;
   }
 }

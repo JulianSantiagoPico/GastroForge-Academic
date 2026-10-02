@@ -1,6 +1,8 @@
 import {
   Controller,
+  Get,
   Post,
+  Patch,
   Body,
   HttpCode,
   HttpStatus,
@@ -27,6 +29,7 @@ import {
   ProcessTransactionResponse,
 } from './transactions.service';
 import { CreateAppressoTransactionDto } from '../dto/create-transaction.dto';
+import { UpdateAppressoConfigDto } from '../dto/update-config.dto';
 import { AppressoThrottlerGuard } from '../throttling/appresso-throttler.guard';
 import { AppressoRejectOriginInterceptor } from '../throttling/appresso-reject-origin.interceptor';
 
@@ -135,5 +138,34 @@ export class AppressoTransactionsController {
     res.status(result.isDuplicate ? HttpStatus.OK : HttpStatus.CREATED);
 
     return result;
+  }
+
+  @Get('config')
+  @ApiOperation({
+    summary: 'Consultar configuración activa de la ventana deslizante y franjas horarias',
+    description:
+      'Devuelve el ancho actual de la ventana (en segundos y milisegundos), los umbrales por franja ' +
+      '(mañana, tarde-noche, noche-madrugada) y la franja horaria activa según la hora UTC del servidor.',
+  })
+  @ApiOkResponse({
+    description: 'Configuración activa de detección y ventana deslizante',
+  })
+  getConfig() {
+    return this.transactionsService.getConfig();
+  }
+
+  @Patch('config')
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  @ApiOperation({
+    summary: 'Modificar dinámicamente la ventana deslizante o los umbrales por franja',
+    description:
+      'Permite ajustar en caliente el ancho de la ventana temporal (en segundos o ms) y los umbrales ' +
+      'de transacciones por franja horaria para pruebas académicas y evaluación en vivo.',
+  })
+  @ApiOkResponse({
+    description: 'Configuración actualizada exitosamente',
+  })
+  updateConfig(@Body() dto: UpdateAppressoConfigDto) {
+    return this.transactionsService.updateConfig(dto);
   }
 }

@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type, Transform } from 'class-transformer';
 import {
   IsString,
   IsNotEmpty,
@@ -8,6 +8,7 @@ import {
   IsISO8601,
   Matches,
   Length,
+  IsOptional,
 } from 'class-validator';
 
 /**
@@ -18,6 +19,7 @@ export class CreateAppressoTransactionDto {
     description: 'Identificador único global de la transacción provisto por el emisor',
     example: 'txn-78a9c2-20260923',
   })
+  @Transform(({ value }) => (value !== undefined && value !== null ? String(value) : value))
   @IsString()
   @IsNotEmpty()
   idTxn: string;
@@ -56,13 +58,15 @@ export class CreateAppressoTransactionDto {
   @Min(1, { message: 'El valor debe ser mayor o igual a 1' })
   value: number;
 
-  @ApiProperty({
-    description: 'Código de moneda de 3 caracteres ISO-4217',
+  @ApiPropertyOptional({
+    description: 'Código de moneda de 3 caracteres ISO-4217 (por defecto COP)',
     example: 'COP',
+    default: 'COP',
   })
+  @IsOptional()
   @IsString()
   @Length(3, 3, { message: 'La moneda debe ser un código ISO de 3 letras' })
-  currency: string;
+  currency: string = 'COP';
 
   @ApiProperty({
     description: 'Método de pago utilizado',
@@ -73,10 +77,10 @@ export class CreateAppressoTransactionDto {
   paymentMethod: string;
 
   @ApiProperty({
-    description: 'Fecha y hora declarada por el emisor en formato ISO-8601 con zona horaria explícita',
+    description: 'Fecha y hora declarada por el emisor en formato ISO-8601',
     example: '2026-09-23T10:30:01.120Z',
   })
-  @IsISO8601({ strict: true }, { message: 'date debe ser una cadena ISO-8601 válida' })
+  @IsISO8601({}, { message: 'date debe ser una cadena ISO-8601 válida' })
   date: string;
 
   @ApiProperty({

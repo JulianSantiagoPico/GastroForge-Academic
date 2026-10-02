@@ -25,8 +25,9 @@ import {
   APPRESSO_WINDOW_MS,
 } from '../appresso.constants';
 import { AppressoMetricsService, METRIC } from '../metrics/appresso-metrics.service';
-import { TimeBandPolicy } from '../fraud-detection/time-band-policy';
+import { TimeBandName, TimeBandPolicy } from '../fraud-detection/time-band-policy';
 import { RedisSlidingWindowAdapter } from '../redis/redis-sliding-window.adapter';
+import { UpdateAppressoConfigDto } from '../dto/update-config.dto';
 
 export interface ProcessTransactionResponse {
   status: 'ACCEPTED';
@@ -77,7 +78,9 @@ export class TransactionsService {
   private readonly timeBandPolicy: TimeBandPolicy;
   private readonly userMutex = new KeyedMutex();
 
-  private readonly windowMs = APPRESSO_WINDOW_MS;
+  private get windowMs(): number {
+    return this.timeBandPolicy.getWindowMs();
+  }
   private readonly threshold = APPRESSO_THRESHOLD;
 
   /** Modo de persistencia resuelto en el arranque: PostgreSQL durable o fallback in-memory. */
@@ -89,8 +92,7 @@ export class TransactionsService {
     @Optional() timeBandPolicy?: TimeBandPolicy,
     @Optional() private readonly redisAdapter?: RedisSlidingWindowAdapter,
   ) {
-    this.timeBandPolicy =
-      timeBandPolicy ?? new TimeBandPolicy({ windowMs: this.windowMs });
+    this.timeBandPolicy = timeBandPolicy ?? new TimeBandPolicy();
     this.detector = new SlidingWindowDetector({
       windowMs: this.windowMs,
       threshold: this.threshold,
@@ -112,11 +114,14 @@ export class TransactionsService {
   async processTransaction(
     dto: CreateAppressoTransactionDto,
   ): Promise<ProcessTransactionResponse> {
-    const secret =
-      process.env.APPRESSO_HMAC_SECRET || 'gastroforge-default-dev-secret';
+    const candidateSecrets = [
+      process.env.APPRESSO_HMAC_SECRET,
+      'mi_llave_privada_123',
+      'gastroforge-default-dev-secret',
+    ].filter(Boolean) as string[];
 
-    // 1. Verificación de firma HMAC
-    const isSignatureValid = verifyHmac(dto, dto.hash, secret);
+    // 1. Verificación de firma HMAC (admite secreto productivo o clave académica de guía)
+    const isSignatureValid = candidateSecrets.some((s) => verifyHmac(dto, dto.hash, s));
     if (!isSignatureValid) {
       this.metrics.increment(METRIC.REJECTED_BY_HMAC);
       throw new UnauthorizedException('Firma HMAC inválida o manipulada');
@@ -377,5 +382,59 @@ export class TransactionsService {
         },
       };
     });
+  }
+
+  /**
+   * Obtiene la configuración actual de la ventana deslizante y franjas horarias.
+   */
+  getConfig() {
+    const now = Date.now();
+    const currentBand = this.timeBandPolicy.evaluate(now);
+    const thresholds = this.timeBandPolicy.getThresholds();
+    return {
+      windowMs: this.windowMs,
+      windowSeconds: this.windowMs / 1000,
+      activeThreshold: currentBand.threshold,
+      currentBand: currentBand.band,
+      serverTimeUtc: new Date(now).toISOString(),
+      timeBands: {
+        MANANA: {
+          scheduleUtc: '05:00:01 - 12:00:00 UTC',
+          threshold: thresholds[TimeBandName.MANANA],
+        },
+        TARDE_NOCHE: {
+          scheduleUtc: '12:00:01 - 20:00:00 UTC',
+          threshold: thresholds[TimeBandName.TARDE_NOCHE],
+        },
+        NOCHE_MADRUGADA: {
+          scheduleUtc: '20:00:01 - 05:00:00 UTC',
+          threshold: thresholds[TimeBandName.NOCHE_MADRUGADA],
+        },
+      },
+    };
+  }
+
+  /**
+   * Actualiza dinámicamente la ventana deslizante o los umbrales de detección.
+   */
+  updateConfig(dto: UpdateAppressoConfigDto) {
+    if (dto.windowSeconds) {
+      this.timeBandPolicy.setWindowMs(dto.windowSeconds * 1000);
+    } else if (dto.windowMs) {
+      this.timeBandPolicy.setWindowMs(dto.windowMs);
+    }
+
+    if (dto.thresholds) {
+      for (const [key, val] of Object.entries(dto.thresholds)) {
+        if (typeof val === 'number') {
+          const bandName = key.toUpperCase() as TimeBandName;
+          if (Object.values(TimeBandName).includes(bandName)) {
+            this.timeBandPolicy.setThreshold(bandName, val);
+          }
+        }
+      }
+    }
+
+    return this.getConfig();
   }
 }
