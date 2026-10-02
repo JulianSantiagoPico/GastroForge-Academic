@@ -91,4 +91,8 @@ El proyecto no tiene TDD estricto configurado (no existe `sdd-init` con `strict_
 
 ## Próximo paso
 
-Entrega. Dos unidades de trabajo pendientes de commit. El PR es decisión del usuario; si se pide, el acumulado ronda las 400 líneas de código authored y conviene encadenar por T3-T7 y T8-T10.
+Ninguno en esta sesión. Decisión de entrega del usuario: **no decidir todavía, dejar todo local**. No hay push, no hay PR y no se lanzó la revisión nativa; el preflight `review status` quedó en un `collect` que espera la declaración de untracked y no se satisfactionó a propósito.
+
+Si más adelante se quiere entregar, el corte natural ya existe: `780891b` (contrato/aislamiento/métricas), `f32ed51` (concurrencia/expiración/dinero) y `0525625` (simulador/reporte) son unidades coherentes y compilables por separado.
+
+Queda pendiente de decisión del usuario si committear los tres archivos untracked preexistentes: `.atl/`, `docs/PLAN_CORRECCION_APPRESSO_OLA1.md` y `docs/Tecnicas_de_resolucion.md`. No se incluyeron en ningún commit porque no son de esta feature.
