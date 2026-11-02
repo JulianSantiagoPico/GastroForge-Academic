@@ -6,10 +6,14 @@ import {
   TimeseriesBucket,
   SimulationBurstParams,
   SimulationBurstResponse,
+  SalonStatusResponse,
+  ServicePriorityResponse,
+  DispatchRouteResponse,
+  TableTelemetry,
 } from '../types/api';
 
 /**
- * Base URL resolution for Appresso API.
+ * Base URL resolution for GastroForge API.
  * Uses VITE_APPRESSO_API_URL if configured; otherwise defaults to '/api/v1'.
  */
 export const getApiBaseUrl = (): string => {
@@ -136,6 +140,31 @@ export class AppressoApiClient {
     }
 
     return await response.json();
+  }
+
+  // ==========================================
+  // Vision Telemetry API Methods
+  // ==========================================
+
+  async getSalonTelemetry(): Promise<SalonStatusResponse> {
+    return await this.request<SalonStatusResponse>('/telemetry/salon');
+  }
+
+  async getTables(): Promise<TableTelemetry[]> {
+    return await this.request<TableTelemetry[]>('/telemetry/tables');
+  }
+
+  async getServicePriority(): Promise<ServicePriorityResponse> {
+    return await this.request<ServicePriorityResponse>('/telemetry/service-priority');
+  }
+
+  async getDispatchRoute(tableId: string): Promise<DispatchRouteResponse> {
+    if (!tableId) {
+      throw new Error('El ID de la mesa es requerido para calcular la ruta de despacho');
+    }
+    return await this.request<DispatchRouteResponse>(
+      `/telemetry/dispatch-route/${encodeURIComponent(tableId)}`,
+    );
   }
 }
 

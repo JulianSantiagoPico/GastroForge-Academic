@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, RefreshCw } from 'lucide-react';
+import { ShieldCheck, RefreshCw, Compass } from 'lucide-react';
 import {
   AnalyticsOverview,
   AnalyticsTimeseries,
@@ -14,8 +14,12 @@ import { EpisodesTable } from './components/EpisodesTable';
 import { TimelineDrawer } from './components/TimelineDrawer';
 import { TrafficSimulator } from './components/TrafficSimulator';
 import { LoadingSkeleton, ErrorMessage } from './components/States';
+import { VisionTelemetryDashboard } from './components/VisionTelemetryDashboard';
 
 export const App: React.FC = () => {
+  // Navigation Module Tab: 'vision' or 'appresso'
+  const [activeTab, setActiveTab] = useState<'vision' | 'appresso'>('vision');
+
   const [rangeDays, setRangeDays] = useState<number>(30);
   const [bucket, setBucket] = useState<TimeseriesBucket>('day');
 
@@ -75,12 +79,16 @@ export const App: React.FC = () => {
 
   // Initial & range trigger
   useEffect(() => {
-    loadMetrics();
-  }, [loadMetrics]);
+    if (activeTab === 'appresso') {
+      loadMetrics();
+    }
+  }, [activeTab, loadMetrics]);
 
   useEffect(() => {
-    loadEpisodes();
-  }, [loadEpisodes]);
+    if (activeTab === 'appresso') {
+      loadEpisodes();
+    }
+  }, [activeTab, loadEpisodes]);
 
   // Timeline Drawer Handlers
   const handleSelectEpisode = useCallback(async (episodeId: string) => {
@@ -115,82 +123,122 @@ export const App: React.FC = () => {
       <header className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 px-4 sm:px-6 lg:px-8 py-3.5">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
-              <ShieldCheck className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+              {activeTab === 'vision' ? (
+                <Compass className="w-5 h-5 text-indigo-400" />
+              ) : (
+                <ShieldCheck className="w-5 h-5 text-sky-400" />
+              )}
             </div>
             <div>
               <h1 className="text-base font-bold tracking-tight text-white flex items-center gap-2">
-                GastroForge Appresso
-                <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                  Operaciones
+                GastroForge Academic
+                <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  {activeTab === 'vision' ? 'Visión & Salón' : 'Operaciones'}
                 </span>
               </h1>
               <p className="text-xs text-slate-400">
-                Fraud Detection & Anomaly Operations Dashboard
+                {activeTab === 'vision'
+                  ? 'Control de Mesas por Visión Computacional & Despacho Dijkstra'
+                  : 'Fraud Detection & Anomaly Operations Dashboard'}
               </p>
             </div>
           </div>
 
+          {/* Module Switcher & Controls */}
           <div className="flex items-center gap-3 self-end sm:self-auto">
-            {/* Range Presets */}
+            {/* Primary Module Switcher Tabs */}
             <div className="inline-flex p-1 bg-slate-900 border border-slate-800 rounded-lg">
               <button
                 type="button"
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                  rangeDays === 1
-                    ? 'bg-sky-500 text-slate-950 font-semibold'
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                  activeTab === 'vision'
+                    ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
-                onClick={() => handleRangeChange(1, 'hour')}
+                onClick={() => setActiveTab('vision')}
               >
-                24h
+                <Compass className="w-3.5 h-3.5" />
+                <span>Telemetría Visión</span>
               </button>
               <button
                 type="button"
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                  rangeDays === 7
-                    ? 'bg-sky-500 text-slate-950 font-semibold'
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                  activeTab === 'appresso'
+                    ? 'bg-sky-500 text-slate-950 font-bold shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
-                onClick={() => handleRangeChange(7)}
+                onClick={() => setActiveTab('appresso')}
               >
-                7 días
-              </button>
-              <button
-                type="button"
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                  rangeDays === 30
-                    ? 'bg-sky-500 text-slate-950 font-semibold'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-                onClick={() => handleRangeChange(30, 'day')}
-              >
-                30 días
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Fraude Appresso</span>
               </button>
             </div>
 
-            {/* Zero-CLS Refresh Button */}
-            <button
-              type="button"
-              className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 min-w-[104px] rounded-lg text-xs font-semibold bg-sky-500 text-slate-950 hover:bg-sky-400 disabled:opacity-50 transition-colors shadow-sm"
-              onClick={() => {
-                loadMetrics();
-                loadEpisodes();
-              }}
-              disabled={isMetricsLoading}
-            >
-              <RefreshCw
-                className={`w-3.5 h-3.5 ${isMetricsLoading ? 'animate-spin' : ''}`}
-              />
-              <span>Actualizar</span>
-            </button>
+            {/* Appresso specific range selector */}
+            {activeTab === 'appresso' && (
+              <>
+                <div className="hidden md:inline-flex p-1 bg-slate-900 border border-slate-800 rounded-lg">
+                  <button
+                    type="button"
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                      rangeDays === 1
+                        ? 'bg-sky-500 text-slate-950 font-semibold'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    onClick={() => handleRangeChange(1, 'hour')}
+                  >
+                    24h
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                      rangeDays === 7
+                        ? 'bg-sky-500 text-slate-950 font-semibold'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    onClick={() => handleRangeChange(7)}
+                  >
+                    7 días
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                      rangeDays === 30
+                        ? 'bg-sky-500 text-slate-950 font-semibold'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    onClick={() => handleRangeChange(30, 'day')}
+                  >
+                    30 días
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 min-w-[104px] rounded-lg text-xs font-semibold bg-sky-500 text-slate-950 hover:bg-sky-400 disabled:opacity-50 transition-colors shadow-sm"
+                  onClick={() => {
+                    loadMetrics();
+                    loadEpisodes();
+                  }}
+                  disabled={isMetricsLoading}
+                >
+                  <RefreshCw
+                    className={`w-3.5 h-3.5 ${isMetricsLoading ? 'animate-spin' : ''}`}
+                  />
+                  <span>Actualizar</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {isMetricsLoading && !overview ? (
+        {activeTab === 'vision' ? (
+          <VisionTelemetryDashboard />
+        ) : isMetricsLoading && !overview ? (
           <LoadingSkeleton message="Cargando panel de control y métricas..." />
         ) : metricsError ? (
           <ErrorMessage message={metricsError} onRetry={loadMetrics} />

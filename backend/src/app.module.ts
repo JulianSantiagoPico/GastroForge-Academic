@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AcademicAnalysisModule } from './modules/academic-analysis/academic-analysis.module';
 import { StructuresModule } from './modules/structures/structures.module';
 import { AppressoModule } from './modules/appresso/appresso.module';
+import { VisionTelemetryModule } from './modules/vision-telemetry/vision-telemetry.module';
 import { HealthController } from './modules/health/health.controller';
 import { AppressoTransactionEntity } from './modules/appresso/persistence/entities/transaction.entity';
 import { AppressoAnomalyEpisodeEntity } from './modules/appresso/persistence/entities/anomaly-episode.entity';
@@ -42,6 +43,7 @@ const isPostgresEnabled = !!process.env.DATABASE_URL;
     AcademicAnalysisModule,
     StructuresModule,
     AppressoModule,
+    VisionTelemetryModule,
   ],
   controllers: [HealthController],
   providers: [

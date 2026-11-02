@@ -36,6 +36,8 @@ async function bootstrap() {
       req.url = `/api/v1${req.url}`;
     } else if (req.url.startsWith('/appresso') && !req.url.startsWith('/api/v1/appresso')) {
       req.url = `/api/v1${req.url}`;
+    } else if (req.url.startsWith('/telemetry') && !req.url.startsWith('/api/v1/telemetry')) {
+      req.url = `/api/v1${req.url}`;
     } else if (req.url === '/health') {
       req.url = '/api/v1/health';
     }
@@ -69,6 +71,7 @@ async function bootstrap() {
     .addTag('Academic-Analysis', 'Algoritmos y pruebas de complejidad computacional')
     .addTag('Data-Structures', 'Estructuras de datos y simulaciones académicas')
     .addTag('Appresso - Detección de Fraude', 'Recepción de transacciones y detección de anomalías por ventana deslizante')
+    .addTag('Vision-Telemetry', 'Ingesta y análisis de telemetría de visión por computadora para el salón')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

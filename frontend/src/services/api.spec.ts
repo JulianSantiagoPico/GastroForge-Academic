@@ -104,6 +104,58 @@ describe('AppressoApiClient (W5 Frontend Adapter)', () => {
     expect(JSON.parse(options.body)).toEqual({ user: 'client-1', count: 3, delayMs: 10 });
     expect(result.summary.sent).toBe(3);
   });
+
+  it('obtiene el estado consolidado de telemetría de salón', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        system: 'GastroForge-Vision-Ultralytics',
+        salonSummary: { total_tables: 4, free_tables: 2, occupied_tables: 2 },
+        kpis: { operational_diagnosis: 'OPERACION_BALANCEADA' },
+      }),
+    });
+
+    const result = await client.getSalonTelemetry();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch.mock.calls[0][0]).toContain('/api/v1/telemetry/salon');
+    expect(result.system).toBe('GastroForge-Vision-Ultralytics');
+    expect(result.salonSummary.total_tables).toBe(4);
+  });
+
+  it('obtiene la cola de prioridad de servicio MinHeap', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        totalPendingTasks: 2,
+        prioritizedTasks: [
+          { tableId: 'Mesa 1', urgencyLevel: 'CRITICA', priorityScore: 100 },
+        ],
+      }),
+    });
+
+    const result = await client.getServicePriority();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch.mock.calls[0][0]).toContain('/api/v1/telemetry/service-priority');
+    expect(result.totalPendingTasks).toBe(2);
+    expect(result.prioritizedTasks[0].urgencyLevel).toBe('CRITICA');
+  });
+
+  it('calcula la ruta de despacho con Dijkstra para una mesa', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        tableId: 'Mesa 1',
+        mappedNode: 'table-1',
+        transitSeconds: 12,
+        path: ['kitchen', 'passage', 'table-1'],
+      }),
+    });
+
+    const result = await client.getDispatchRoute('Mesa 1');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch.mock.calls[0][0]).toContain('/api/v1/telemetry/dispatch-route/Mesa%201');
+    expect(result.transitSeconds).toBe(12);
+  });
 });
 
 describe('Metric Formatters (W5)', () => {
